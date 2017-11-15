@@ -103,10 +103,10 @@ void gui_init_hardware()
 	DisplayMISOPin::conf_in();
 	DisplayMOSIPin::conf_alt_push_pull();
 
+	// Инициализируем SPI для дисплея
 	LCD_SPI::clock_on();
 	LCD_SPI::reset();
 
-	// Инициализируем SPI для дисплея
 	LCD_SPI::init(
 		SPI_BitsCount::_8,
 		SPI_CSMode::Soft,
@@ -117,11 +117,10 @@ void gui_init_hardware()
 
 	display.init();
 
+	// Таймер и пин для регулировки якрости дисплея через ШИМ
 	DisplLedTimer::clock_on();
 	DisplLedTimer::reset();
-
 	DisplLedPin::conf_alt_push_pull();
-
 	DisplLedTimer::disable_auto_reload_preload();
 	DisplLedTimer::set_prescaler(SysFreq/10000-1); // 100 мкс
 	DisplLedTimer::set_auto_reload_value(20-1); // 2 мс
@@ -399,7 +398,7 @@ static void play_sound(unsigned value)
 		sound_play_alarm();
 }
 
-static void set_led_flashing(unsigned value)
+static void set_lcd_led_flashing(unsigned value)
 {
 	if (value > config.alarm_value)
 		led_mode = LedMode::Flashing;
@@ -422,7 +421,7 @@ void gui_run()
 			{
 				add_value_to_graphics(co2_value);
 				play_sound(co2_value);
-				set_led_flashing(co2_value);
+				set_lcd_led_flashing(co2_value);
 			}
 			show_measure(co2_value);
 			last_measures_count = measures_count;

@@ -32,6 +32,7 @@ inline void exti_clear_pending_bit(unsigned line)
 {
 	EXTI->PR = (1 << line);
 	EXTI->PR;
+	__DSB();
 }
 
 } // namespace hl

@@ -223,14 +223,64 @@ private:
 
 namespace detailed {
 
+#ifdef RCC_AHBENR_DMA1EN
 template <> struct DMAHelper<1>
 {
 	static constexpr uint32_t RccBit = RCC_AHBENR_DMA1EN;
 	static constexpr uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, AHBENR);
+#ifdef RCC_AHBRSTR_DMA1RST
 	static constexpr uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, AHBRSTR);
+#endif
 
 	static constexpr uintptr_t dma = DMA1_BASE;
 };
+
+template <> struct DMAChanHelperEx<1, 1>
+{
+	// DMA_Channel_TypeDef
+	static constexpr uintptr_t chan = DMA1_Channel1_BASE;
+	static constexpr IRQn_Type IRQn = DMA1_Channel1_IRQn;
+};
+
+template <> struct DMAChanHelperEx<1, 2>
+{
+	static constexpr uintptr_t chan = DMA1_Channel2_BASE;
+	static constexpr IRQn_Type IRQn = DMA1_Channel2_IRQn;
+};
+
+template <> struct DMAChanHelperEx<1, 3>
+{
+	static constexpr uintptr_t chan = DMA1_Channel3_BASE;
+	static constexpr IRQn_Type IRQn = DMA1_Channel3_IRQn;
+};
+
+template <> struct DMAChanHelperEx<1, 4>
+{
+	static constexpr uintptr_t chan = DMA1_Channel4_BASE;
+	static constexpr IRQn_Type IRQn = DMA1_Channel4_IRQn;
+};
+
+template <> struct DMAChanHelperEx<1, 5>
+{
+	static constexpr uintptr_t chan = DMA1_Channel5_BASE;
+	static constexpr IRQn_Type IRQn = DMA1_Channel5_IRQn;
+};
+
+template <> struct DMAChanHelperEx<1, 6>
+{
+	static constexpr uintptr_t chan = DMA1_Channel6_BASE;
+	static constexpr IRQn_Type IRQn = DMA1_Channel6_IRQn;
+};
+
+template <> struct DMAChanHelperEx<1, 7>
+{
+	static constexpr uintptr_t chan = DMA1_Channel7_BASE;
+	static constexpr IRQn_Type IRQn = DMA1_Channel7_IRQn;
+};
+
+#endif
+
+#ifdef RCC_AHBENR_DMA2EN
 
 template <> struct DMAHelper<2>
 {
@@ -240,6 +290,38 @@ template <> struct DMAHelper<2>
 
 	static constexpr uintptr_t dma = DMA2_BASE;
 };
+
+template <> struct DMAChanHelperEx<2, 1>
+{
+	static constexpr uintptr_t chan = DMA2_Channel1_BASE;
+	static constexpr IRQn_Type IRQn = DMA2_Channel1_IRQn;
+};
+
+template <> struct DMAChanHelperEx<2, 2>
+{
+	static constexpr uintptr_t chan = DMA2_Channel2_BASE;
+	static constexpr IRQn_Type IRQn = DMA2_Channel2_IRQn;
+};
+
+template <> struct DMAChanHelperEx<2, 3>
+{
+	static constexpr uintptr_t chan = DMA2_Channel3_BASE;
+	static constexpr IRQn_Type IRQn = DMA2_Channel3_IRQn;
+};
+
+template <> struct DMAChanHelperEx<2, 4>
+{
+	static constexpr uintptr_t chan = DMA2_Channel4_BASE;
+	static constexpr IRQn_Type IRQn = DMA2_Channel4_IRQn;
+};
+
+template <> struct DMAChanHelperEx<2, 5>
+{
+	static constexpr uintptr_t chan = DMA2_Channel5_BASE;
+	static constexpr IRQn_Type IRQn = DMA2_Channel5_IRQn;
+};
+
+#endif
 
 template <> struct DMAChanHelper<1>
 {
@@ -297,84 +379,12 @@ template <> struct DMAChanHelper<7>
 	static constexpr uint32_t GlobalInterruptFlag  = DMA_ISR_GIF7;
 };
 
-template <> struct DMAChanHelperEx<1, 1>
-{
-	// DMA_Channel_TypeDef
-	static constexpr uintptr_t chan = DMA1_Channel1_BASE;
-	static constexpr IRQn_Type IRQn = DMA1_Channel1_IRQn;
-};
-
-template <> struct DMAChanHelperEx<1, 2>
-{
-	static constexpr uintptr_t chan = DMA1_Channel2_BASE;
-	static constexpr IRQn_Type IRQn = DMA1_Channel2_IRQn;
-};
-
-template <> struct DMAChanHelperEx<1, 3>
-{
-	static constexpr uintptr_t chan = DMA1_Channel3_BASE;
-	static constexpr IRQn_Type IRQn = DMA1_Channel3_IRQn;
-};
-
-template <> struct DMAChanHelperEx<1, 4>
-{
-	static constexpr uintptr_t chan = DMA1_Channel4_BASE;
-	static constexpr IRQn_Type IRQn = DMA1_Channel4_IRQn;
-};
-
-template <> struct DMAChanHelperEx<1, 5>
-{
-	static constexpr uintptr_t chan = DMA1_Channel5_BASE;
-	static constexpr IRQn_Type IRQn = DMA1_Channel5_IRQn;
-};
-
-template <> struct DMAChanHelperEx<1, 6>
-{
-	static constexpr uintptr_t chan = DMA1_Channel6_BASE;
-	static constexpr IRQn_Type IRQn = DMA1_Channel6_IRQn;
-};
-
-template <> struct DMAChanHelperEx<1, 7>
-{
-	static constexpr uintptr_t chan = DMA1_Channel7_BASE;
-	static constexpr IRQn_Type IRQn = DMA1_Channel7_IRQn;
-};
-
-template <> struct DMAChanHelperEx<2, 1>
-{
-	static constexpr uintptr_t chan = DMA2_Channel1_BASE;
-	static constexpr IRQn_Type IRQn = DMA2_Channel1_IRQn;
-};
-
-template <> struct DMAChanHelperEx<2, 2>
-{
-	static constexpr uintptr_t chan = DMA2_Channel2_BASE;
-	static constexpr IRQn_Type IRQn = DMA2_Channel2_IRQn;
-};
-
-template <> struct DMAChanHelperEx<2, 3>
-{
-	static constexpr uintptr_t chan = DMA2_Channel3_BASE;
-	static constexpr IRQn_Type IRQn = DMA2_Channel3_IRQn;
-};
-
-template <> struct DMAChanHelperEx<2, 4>
-{
-	static constexpr uintptr_t chan = DMA2_Channel4_BASE;
-	static constexpr IRQn_Type IRQn = DMA2_Channel4_IRQn;
-};
-
-template <> struct DMAChanHelperEx<2, 5>
-{
-	static constexpr uintptr_t chan = DMA2_Channel5_BASE;
-	static constexpr IRQn_Type IRQn = DMA2_Channel5_IRQn;
-};
-
 
 } // namespace detailed
 
+
+#ifdef RCC_AHBENR_DMA1EN
 typedef DMA_<1> Dma1;
-typedef DMA_<2> Dma2;
 
 typedef DMAChannel<1, 1> DMA1_Chan1;
 typedef DMAChannel<1, 2> DMA1_Chan2;
@@ -384,10 +394,18 @@ typedef DMAChannel<1, 5> DMA1_Chan5;
 typedef DMAChannel<1, 6> DMA1_Chan6;
 typedef DMAChannel<1, 7> DMA1_Chan7;
 
+#endif
+
+#ifdef RCC_AHBENR_DMA2EN
+
+typedef DMA_<2> Dma2;
+
 typedef DMAChannel<2, 1> DMA2_Chan1;
 typedef DMAChannel<2, 2> DMA2_Chan2;
 typedef DMAChannel<2, 3> DMA2_Chan3;
 typedef DMAChannel<2, 4> DMA2_Chan4;
 typedef DMAChannel<2, 5> DMA2_Chan5;
+
+#endif
 
 } // namespace hl

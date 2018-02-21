@@ -381,7 +381,6 @@ public:
 #if defined(HL_STM32L1XX)
 	static void enable_scan_mode()
 	{
-
 		set_periph_reg_bit<ADC_CR1, ADC_CR1_SCAN>();
 	}
 
@@ -451,8 +450,6 @@ public:
 
 
 #if defined(HL_STM32L1XX)
-
-
 	static void enable_regular_whatchdog()
 	{
 		set_periph_reg_bit<ADC_CR1, ADC_CR1_AWDEN>();

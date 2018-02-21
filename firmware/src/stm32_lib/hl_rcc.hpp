@@ -4,6 +4,19 @@
 
 namespace hl {
 
+#ifdef RCC_APB2ENR_AFIOEN
+inline void rcc_enable_afio()
+{
+	RCC->APB2ENR |= RCC_APB2ENR_AFIOEN;
+}
+
+inline void rcc_disable_afio()
+{
+	RCC->APB2ENR &= ~RCC_APB2ENR_AFIOEN;
+}
+#endif
+
+
 #ifdef RCC_CR_RTCPRE
 
 // RTC/LCD prescaler
@@ -473,10 +486,13 @@ inline bool rcc_is_lsi_ready()
 #ifdef RCC_CSR_RTCRST
 inline void rcc_reset_rtc()
 {
+	auto tmp = (RCC->CSR & ~(RCC_CSR_RTCSEL));
 	RCC->CSR |= RCC_CSR_RTCRST;
 	__DSB();
 	RCC->CSR &= ~RCC_CSR_RTCRST;
 	__DSB();
+
+	RCC->CSR = tmp;
 }
 #endif
 
@@ -533,10 +549,7 @@ enum class RTCClock
 inline void rcc_set_rtc_clock(RTCClock clock)
 {
 #ifdef RCC_CSR_RTCSEL
-	uint32_t csr = RCC->CSR;
-	csr &= ~RCC_CSR_RTCSEL;
-	csr |= (uint32_t)clock;
-	RCC->CSR = csr;
+	set_value_by_mask(RCC->CSR, RCC_CSR_RTCSEL, (uint32_t)clock);
 #endif
 #ifdef RCC_BDCR_RTCSEL
 	auto bdcr = RCC->BDCR;

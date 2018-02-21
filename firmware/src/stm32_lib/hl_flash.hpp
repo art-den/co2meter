@@ -130,73 +130,123 @@ inline void eeprom_lock()
 	FLASH->PECR |= FLASH_PECR_PELOCK;
 }
 
-
-class EepromUnlocker
+union BytesOfInt16
 {
-public:
-	EepromUnlocker()
-	{
-		auto &cnt = counter();
-		if (cnt == 0) eeprom_unlock();
-		cnt++;
-	}
-
-	~EepromUnlocker()
-	{
-		auto &cnt = counter();
-		cnt--;
-		if (cnt == 0) eeprom_lock();
-	}
-
-private:
-	unsigned& counter()
-	{
-		static unsigned counter = 0;
-		return counter;
-	}
+	uint16_t int_value;
+	uint8_t  bytes[2];
 };
 
-
-inline void eeprom_erase_word(uintptr_t dst)
+union BytesOfInt32
 {
-	*(volatile uint32_t*)dst = 0;
-	while (FLASH->SR & FLASH_SR_BSY) {}
-}
+	uint32_t int_value;
+	uint8_t bytes[4];
+};
 
-
-inline void eeprom_fast_write_int32(uintptr_t dst, uint32_t data, bool *eeprom_unlocked_flag = nullptr)
+inline uint16_t get_uint16_unaligned(uintptr_t src)
 {
-	if (*(volatile uint32_t*)dst == data) return;
-	if (eeprom_unlocked_flag && !*eeprom_unlocked_flag)
+	if ((src % 2) == 0)
+		return *(volatile uint16_t*)src;
+	else
 	{
-		eeprom_unlock();
-		*eeprom_unlocked_flag = true;
+		BytesOfInt16 boi;
+		boi.bytes[0] = *(volatile uint8_t*)src;
+		boi.bytes[1] = *(volatile uint8_t*)(src+1);
+		return boi.int_value;
 	}
-	FLASH->PECR &= ~FLASH_PECR_FTDW;
-	*(volatile uint32_t*)dst = data;
-	while (FLASH->SR & FLASH_SR_BSY) {}
 }
 
-
-inline void eeprom_write_int32(uintptr_t dst, uint32_t data, bool *eeprom_unlocked_flag = nullptr)
+inline uint32_t get_uint32_unaligned(uintptr_t src)
 {
-	if (*(volatile uint32_t*)dst == data) return;
-	if (eeprom_unlocked_flag && !*eeprom_unlocked_flag)
+	if ((src % 4) == 0)
+		return *(volatile uint32_t*)src;
+	else
 	{
-		eeprom_unlock();
-		*eeprom_unlocked_flag = true;
+		BytesOfInt32 boi;
+		boi.bytes[0] = *(volatile uint8_t*)src;
+		boi.bytes[1] = *(volatile uint8_t*)(src+1);
+		boi.bytes[2] = *(volatile uint8_t*)(src+2);
+		boi.bytes[3] = *(volatile uint8_t*)(src+3);
+		return boi.int_value;
 	}
-	FLASH->PECR |= FLASH_PECR_FTDW;
-	*(volatile uint32_t*)dst = data;
-	while (FLASH->SR & FLASH_SR_BSY) {}
 }
 
+inline void set_uint16_unaligned(uintptr_t ram_dst_addr, uint16_t value)
+{
+	if ((ram_dst_addr % 2) == 0)
+		*(volatile uint16_t*)ram_dst_addr = value;
+	else
+	{
+		BytesOfInt16 boi;
+		boi.int_value = value;
+		*(volatile uint8_t*)ram_dst_addr     = boi.bytes[0];
+		*(volatile uint8_t*)(ram_dst_addr+1) = boi.bytes[1];
+	}
+}
+
+inline void set_uint32_unaligned(uintptr_t ram_dst_addr, uint32_t value)
+{
+	if ((ram_dst_addr % 4) == 0)
+		*(volatile uint32_t*)ram_dst_addr = value;
+	else
+	{
+		BytesOfInt32 boi;
+		boi.int_value = value;
+		*(volatile uint8_t*)ram_dst_addr     = boi.bytes[0];
+		*(volatile uint8_t*)(ram_dst_addr+1) = boi.bytes[1];
+		*(volatile uint8_t*)(ram_dst_addr+2) = boi.bytes[2];
+		*(volatile uint8_t*)(ram_dst_addr+3) = boi.bytes[3];
+	}
+}
+
+
+inline void eeprom_read8(uintptr_t eeprom_src_addr, uintptr_t ram_dst_addr)
+{
+	*(volatile uint8_t*)ram_dst_addr = *(volatile uint8_t*)eeprom_src_addr;
+}
+
+inline void eeprom_read16(uintptr_t eeprom_src_addr, uintptr_t ram_dst_addr)
+{
+	set_uint16_unaligned(ram_dst_addr, get_uint16_unaligned(eeprom_src_addr));
+}
+
+inline void eeprom_read32(uintptr_t eeprom_src_addr, uintptr_t ram_dst_addr)
+{
+	set_uint32_unaligned(ram_dst_addr, get_uint32_unaligned(eeprom_src_addr));
+}
+
+inline void eeprom_read(uintptr_t eeprom_src_addr, uintptr_t ram_dst_addr, unsigned count)
+{
+	while (count != 0)
+	{
+		if (count >= 4)
+		{
+			eeprom_read32(eeprom_src_addr, ram_dst_addr);
+			eeprom_src_addr += 4;
+			ram_dst_addr += 4;
+			count -= 4;
+		}
+		else if (count >= 2)
+		{
+			eeprom_read16(eeprom_src_addr, ram_dst_addr);
+			eeprom_src_addr += 2;
+			ram_dst_addr += 2;
+			count -= 2;
+		}
+		else
+		{
+			eeprom_read8(eeprom_src_addr, ram_dst_addr);
+			eeprom_src_addr++;
+			ram_dst_addr++;
+			count--;
+		}
+	}
+}
 
 template <typename T>
-void write_null_data(uintptr_t dst)
+void eeprom_write_null_data(uintptr_t eeprom_dst_addr)
 {
-	volatile uint32_t *addr = (volatile uint32_t*)((uintptr_t)dst & ~3UL);
-	unsigned offset = (unsigned)dst & 3UL;
+	volatile uint32_t *addr = (volatile uint32_t*)(eeprom_dst_addr & ~3UL);
+	unsigned offset = (unsigned)eeprom_dst_addr & 3UL;
 	uint32_t value = *addr;
 	uint32_t mask = (T)(~T());
 	mask <<= offset * 8;
@@ -205,125 +255,84 @@ void write_null_data(uintptr_t dst)
 }
 
 
-inline void eeprom_fast_write_int16(uintptr_t dst, uint16_t data, bool *eeprom_unlocked_flag = nullptr)
+inline void eeprom_write8(uintptr_t eeprom_dst_addr, uintptr_t ram_src_addr)
 {
-	if (*(volatile uint16_t*)dst == data) return;
-	if (eeprom_unlocked_flag && !*eeprom_unlocked_flag)
-	{
-		eeprom_unlock();
-		*eeprom_unlocked_flag = true;
-	}
-	FLASH->PECR &= ~FLASH_PECR_FTDW;
-	*(volatile uint16_t*)dst = data;
-	while (FLASH->SR & FLASH_SR_BSY) {}
-}
-
-
-inline void eeprom_write_int16(uintptr_t dst, uint16_t data, bool *eeprom_unlocked_flag = nullptr)
-{
-	if (*(volatile uint16_t*)dst == data) return;
-	if (eeprom_unlocked_flag && !*eeprom_unlocked_flag)
-	{
-		eeprom_unlock();
-		*eeprom_unlocked_flag = true;
-	}
+	uint8_t value_to_write = *(volatile uint8_t*)ram_src_addr;
+	if (*(volatile uint8_t*)eeprom_dst_addr == value_to_write) return;
 	FLASH->PECR |= FLASH_PECR_FTDW;
-	if (data != 0)
-		*(volatile uint16_t*)dst = data;
+	if (value_to_write != 0)
+		*(volatile uint8_t*)eeprom_dst_addr = value_to_write;
 	else
-		write_null_data<uint16_t>(dst);
+		eeprom_write_null_data<uint8_t>(eeprom_dst_addr);
 	while (FLASH->SR & FLASH_SR_BSY) {}
 }
 
-
-inline void eeprom_fast_write_int8(uintptr_t dst, uint8_t data, bool *eeprom_unlocked_flag = nullptr)
+inline void eeprom_write16(uintptr_t eeprom_dst_addr, uintptr_t ram_src_addr)
 {
-	if (*(volatile uint8_t*)dst == data) return;
-	if (eeprom_unlocked_flag && !*eeprom_unlocked_flag)
+	uint16_t value_to_write = get_uint16_unaligned(ram_src_addr);
+	if (get_uint16_unaligned(eeprom_dst_addr) == value_to_write) return;
+	if ((eeprom_dst_addr % 2) != 0)
 	{
-		eeprom_unlock();
-		*eeprom_unlocked_flag = true;
+		eeprom_write8(eeprom_dst_addr,   ram_src_addr  );
+		eeprom_write8(eeprom_dst_addr+1, ram_src_addr+1);
 	}
-	FLASH->PECR &= ~FLASH_PECR_FTDW;
-	*(volatile uint8_t*)dst = data;
-	while (FLASH->SR & FLASH_SR_BSY) {}
-}
-
-
-inline void eeprom_write_int8(uintptr_t dst, uint8_t data, bool *eeprom_unlocked_flag = nullptr)
-{
-	if (*(volatile uint8_t*)dst == data) return;
-	if (eeprom_unlocked_flag && !*eeprom_unlocked_flag)
-	{
-		eeprom_unlock();
-		*eeprom_unlocked_flag = true;
-	}
-	FLASH->PECR |= FLASH_PECR_FTDW;
-	if (data != 0)
-		*(volatile uint8_t*)dst = data;
 	else
-		write_null_data<uint8_t>(dst);
-	while (FLASH->SR & FLASH_SR_BSY) {}
+	{
+		FLASH->PECR |= FLASH_PECR_FTDW;
+		if (value_to_write != 0)
+			*(volatile uint16_t*)eeprom_dst_addr = value_to_write;
+		else
+			eeprom_write_null_data<uint16_t>(eeprom_dst_addr);
+		while (FLASH->SR & FLASH_SR_BSY) {}
+	}
 }
 
-
-inline void eeprom_write_data(const volatile uint8_t *src, uintptr_t dst, size_t len)
+inline void eeprom_write32(uintptr_t eeprom_dst_addr, uintptr_t ram_src_addr)
 {
-	bool eeprom_unlocked = false;
-
-	while (len != 0)
+	uint32_t value_to_write = get_uint32_unaligned(ram_src_addr);
+	if (get_uint32_unaligned(eeprom_dst_addr) == value_to_write) return;
+	if ((eeprom_dst_addr % 4) != 0)
 	{
-		size_t item_len = 0;
-		if (len >= 4)
+		eeprom_write8(eeprom_dst_addr,   ram_src_addr  );
+		eeprom_write8(eeprom_dst_addr+1, ram_src_addr+1);
+		eeprom_write8(eeprom_dst_addr+2, ram_src_addr+2);
+		eeprom_write8(eeprom_dst_addr+3, ram_src_addr+3);
+	}
+	else
+	{
+		FLASH->PECR |= FLASH_PECR_FTDW;
+		*(volatile uint32_t*)eeprom_dst_addr = value_to_write;
+		while (FLASH->SR & FLASH_SR_BSY) {}
+	}
+}
+
+inline void eeprom_write(uintptr_t eeprom_dst_addr, uintptr_t ram_src_addr, unsigned count)
+{
+	while (count != 0)
+	{
+		if ((count >= 4) && ((eeprom_dst_addr % 4) == 0))
 		{
-			eeprom_write_int32(dst, *(uint32_t*)src, &eeprom_unlocked);
-			item_len = 4;
+			eeprom_write32(eeprom_dst_addr, ram_src_addr);
+			ram_src_addr += 4;
+			eeprom_dst_addr += 4;
+			count -= 4;
 		}
-		else if (len >= 2)
+		else if ((count >= 2) && ((eeprom_dst_addr % 2) == 0))
 		{
-			eeprom_write_int16(dst, *(uint16_t*)src, &eeprom_unlocked);
-			item_len = 2;
+			eeprom_write16(eeprom_dst_addr, ram_src_addr);
+			ram_src_addr += 2;
+			eeprom_dst_addr += 2;
+			count -= 2;
 		}
 		else
 		{
-			eeprom_write_int8(dst, *(uint8_t*)src, &eeprom_unlocked);
-			item_len = 1;
+			eeprom_write8(eeprom_dst_addr, ram_src_addr);
+			ram_src_addr++;
+			eeprom_dst_addr++;
+			count--;
 		}
-
-		len -= item_len;
-		dst += item_len;
-		src += item_len;
 	}
 
-	if (eeprom_unlocked) eeprom_lock();
-}
-
-
-inline void eeprom_read_data(uintptr_t src, volatile uint8_t *dst, size_t len)
-{
-	while (len != 0)
-	{
-		size_t item_len = 0;
-		if (len >= 4)
-		{
-			*(volatile uint32_t*)dst = *(volatile uint32_t*)src;
-			item_len = 4;
-		}
-		else if (len >= 2)
-		{
-			*(volatile uint16_t*)dst = *(volatile uint16_t*)src;
-			item_len = 2;
-		}
-		else
-		{
-			*(volatile uint8_t*)dst = *(volatile uint8_t*)src;
-			item_len = 1;
-		}
-
-		len -= item_len;
-		dst += item_len;
-		src += item_len;
-	}
 }
 
 #endif // HL_STM32L1XX

@@ -231,4 +231,9 @@ inline bool pwr_get_wakeup_flag()
 	return PWR->CSR & PWR_CSR_WUF;
 }
 
+inline void pwr_set_sleepdeep_flag()
+{
+	SCB->SCR |= SCB_SCR_SLEEPDEEP;
+}
+
 } // namespace hl

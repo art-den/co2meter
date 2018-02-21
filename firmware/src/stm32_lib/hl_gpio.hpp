@@ -1,6 +1,7 @@
 #pragma once
 
 #include "hl_device.hpp"
+#include "hl_exti.hpp"
 
 #if defined (HL_STM32L1XX)
 	#define HL_GPIO_VER2
@@ -44,30 +45,28 @@ public:
 
 	static void HL_ALWAYS_INLINE set(uint16_t value)
 	{
-		((volatile GPIO_TypeDef*)Helper::gpio)->ODR = value;
+		HL_UI32REG(ODR_ADDR) = value;
 	}
 
 	static void HL_ALWAYS_INLINE set(uint16_t value, uint16_t mask)
 	{
-		HL_UI32REG(BSRR) = value | ((uint32_t)mask << 16);
+		HL_UI32REG(BSRR_ADDR) = value | ((uint32_t)mask << 16);
 	}
 
 	static uint16_t HL_ALWAYS_INLINE get_in()
 	{
-		return ((volatile GPIO_TypeDef*)Helper::gpio)->IDR;
+		return HL_UI32REG(IDR_ADDR);
 	}
 
 	static uint16_t HL_ALWAYS_INLINE get_out()
 	{
-		return ((volatile GPIO_TypeDef*)Helper::gpio)->ODR;
+		return HL_UI32REG(ODR_ADDR);
 	}
 
 public:
-#if defined (HL_GPIO_VER1)
-	constexpr static uintptr_t BSRR = Helper::gpio + 0x10;
-#elif defined (HL_GPIO_VER2)
-	constexpr static uintptr_t BSRR = Helper::gpio + 0x18;
-#endif
+	constexpr static uintptr_t BSRR_ADDR = Helper::gpio + offsetof(GPIO_TypeDef, BSRR);
+	constexpr static uintptr_t ODR_ADDR = Helper::gpio + offsetof(GPIO_TypeDef, ODR);
+	constexpr static uintptr_t IDR_ADDR = Helper::gpio + offsetof(GPIO_TypeDef, IDR);
 };
 
 enum class PinSpeed
@@ -98,9 +97,8 @@ public:
 #if defined (HL_GPIO_VER1)
 		set_value_by_mask<uint32_t>(CR, InvMask4, 0b01/*float in*/ << (Shift4+2));
 #elif defined (HL_GPIO_VER2)
-		auto *gpio = (GPIO_TypeDef*)PortType::Helper::gpio;
-		gpio->MODER = (gpio->MODER & InvMask2) | (ModerInput << PinIndex*2);
-		gpio->PUPDR = (gpio->PUPDR & InvMask2);
+		set_value_by_mask(MODER_ADDR, InvMask2, ModerInput << PinIndex*2);
+		set_value_by_mask(PUPDR_ADDR, InvMask2, PupdrNone);
 #endif
 	}
 
@@ -110,9 +108,8 @@ public:
 		set_value_by_mask<uint32_t>(CR, InvMask4, 0b10/*pulled in*/ << (Shift4+2));
 		on();
 #elif defined (HL_GPIO_VER2)
-		auto *gpio = (GPIO_TypeDef*)PortType::Helper::gpio;
-		gpio->MODER = (gpio->MODER & InvMask2) | (ModerInput << PinIndex*2);
-		gpio->PUPDR = (gpio->PUPDR & InvMask2) | (PupdrPullUp << PinIndex*2);
+		set_value_by_mask(MODER_ADDR, InvMask2, ModerInput << PinIndex*2);
+		set_value_by_mask(PUPDR_ADDR, InvMask2, PupdrPullUp << PinIndex*2);
 #endif
 	}
 
@@ -122,9 +119,9 @@ public:
 		set_value_by_mask<uint32_t>(CR, InvMask4, 0b10/*pulled in*/ << (Shift4+2));
 		off();
 #elif defined (HL_GPIO_VER2)
-		auto *gpio = (GPIO_TypeDef*)PortType::Helper::gpio;
-		gpio->MODER = (gpio->MODER & InvMask2) | (ModerInput << PinIndex*2);
-		gpio->PUPDR = (gpio->PUPDR & InvMask2) | (PupdrPullDown << PinIndex*2);
+
+		set_value_by_mask(MODER_ADDR, InvMask2, ModerInput << PinIndex*2);
+		set_value_by_mask(PUPDR_ADDR, InvMask2, PupdrPullDown << PinIndex*2);
 #endif
 	}
 
@@ -138,23 +135,24 @@ public:
 #if defined (HL_GPIO_VER1)
 #elif defined (HL_GPIO_VER2)
 		constexpr uint32_t Shift = (PinIndex & 0x3) * 4;
-		constexpr uint32_t Mask  = (0xF << Shift);
-		SYSCFG->EXTICR[PinIndex >> 2] = (SYSCFG->EXTICR[PinIndex >> 2] & Mask) | (PortType::Helper::EXTIx << Shift);
-		EXTI->EMR = (EXTI->EMR & InvMask1) | (enable_event ? BitMask : 0);
-		EXTI->IMR = (EXTI->IMR & InvMask1) | (enable_interrupt ? BitMask : 0);
-	    EXTI->RTSR = (EXTI->RTSR & InvMask1) | (rising ? BitMask : 0);
-	    EXTI->FTSR = (EXTI->FTSR & InvMask1) | (falling ? BitMask : 0);
+		if (rising || falling)
+		{
+			RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+			__DSB(); __DSB(); __NOP(); __NOP();
+		}
+		set_value_by_mask(SYSCFG->EXTICR[PinIndex >> 2], 0xF << Shift, PortType::Helper::EXTIx << Shift);
+		exti_configure_channel(PinIndex, enable_event, enable_interrupt, rising, falling);
 #endif
 	}
 
 	static bool HL_ALWAYS_INLINE get_interrupt_bit()
 	{
-		return EXTI->PR & BitMask;
+		return exti_get_pending_bit(PinIndex);
 	}
 
 	static void HL_ALWAYS_INLINE clear_interrupt_bit()
 	{
-		EXTI->PR = BitMask;
+		exti_clear_pending_bit(PinIndex);
 	}
 
 
@@ -165,10 +163,9 @@ public:
 #if defined (HL_GPIO_VER1)
 		set_value_by_mask<uint32_t>(CR, InvMask4, ((uint32_t)speed << Shift4) | (0b00/*pp*/ << (Shift4+2)));
 #elif defined (HL_GPIO_VER2)
-		auto *gpio = (GPIO_TypeDef*)PortType::Helper::gpio;
-		gpio->MODER = (gpio->MODER & InvMask2) | (ModerOutput << PinIndex*2);
-		gpio->OTYPER = (gpio->OTYPER & InvMask1) | (OyperPP << PinIndex);
-		gpio->OSPEEDR = (gpio->OSPEEDR & InvMask2) | (((uint32_t)speed) << PinIndex*2);
+		set_value_by_mask(MODER_ADDR, InvMask2, ModerOutput << PinIndex*2);
+		set_value_by_mask(OTYPER_ADDR, InvMask1, OyperPP << PinIndex);
+		set_value_by_mask(OSPEEDR_ADDR, InvMask2, ((uint32_t)speed) << PinIndex*2);
 #endif
 	}
 
@@ -177,16 +174,15 @@ public:
 #if defined (HL_GPIO_VER1)
 		set_value_by_mask<uint32_t>(CR, InvMask4, ((uint32_t)speed << Shift4) | (0b01/*od*/ << (Shift4+2)));
 #elif defined (HL_GPIO_VER2)
-		auto *gpio = (GPIO_TypeDef*)PortType::Helper::gpio;
-		gpio->MODER = (gpio->MODER & InvMask2) | (ModerOutput << PinIndex*2);
-		gpio->OTYPER = (gpio->OTYPER & InvMask1) | (OyperOD << PinIndex);
-		gpio->OSPEEDR = (gpio->OSPEEDR & InvMask2) | (((uint32_t)speed) << PinIndex*2);
+		set_value_by_mask(MODER_ADDR, InvMask2, ModerOutput << PinIndex*2);
+		set_value_by_mask(OTYPER_ADDR, InvMask1, OyperOD << PinIndex);
+		set_value_by_mask(OSPEEDR_ADDR, InvMask2, ((uint32_t)speed) << PinIndex*2);
 #endif
 	}
 
 	static void HL_ALWAYS_INLINE on()
 	{
-		HL_UI32REG(Port::BSRR) = BitMask;
+		HL_UI32REG(Port::BSRR_ADDR) = BitMask;
 	}
 
 	static void HL_ALWAYS_INLINE toggle()
@@ -196,7 +192,7 @@ public:
 
 	static void HL_ALWAYS_INLINE off()
 	{
-		HL_UI32REG(Port::BSRR) = (BitMask << 16);
+		HL_UI32REG(Port::BSRR_ADDR) = (BitMask << 16);
 	}
 
 	static void HL_ALWAYS_INLINE set_out(bool const value)
@@ -217,10 +213,9 @@ public:
 #if defined (HL_GPIO_VER1)
 		set_value_by_mask<uint32_t>(CR, InvMask4, ((uint32_t)speed << Shift4) | (0b10/*alt pp*/ << (Shift4+2)));
 #elif defined (HL_GPIO_VER2)
-		auto *gpio = (GPIO_TypeDef*)PortType::Helper::gpio;
-		gpio->MODER = (gpio->MODER & InvMask2) | (ModerAF << PinIndex*2);
-		gpio->OTYPER = (gpio->OTYPER & InvMask1) | (OyperPP << PinIndex);
-		gpio->OSPEEDR = (gpio->OSPEEDR & InvMask2) | (((uint32_t)speed) << PinIndex*2);
+		set_value_by_mask(MODER_ADDR, InvMask2, ModerAF << PinIndex*2);
+		set_value_by_mask(OTYPER_ADDR, InvMask1, OyperPP << PinIndex);
+		set_value_by_mask(OSPEEDR_ADDR, InvMask2, ((uint32_t)speed) << PinIndex*2);
 #endif
 	}
 
@@ -229,10 +224,9 @@ public:
 #if defined (HL_GPIO_VER1)
 		set_value_by_mask<uint32_t>(CR, InvMask4, ((uint32_t)speed << Shift4) | (0b11/*alt od*/ << (Shift4+2)));
 #elif defined (HL_GPIO_VER2)
-		auto *gpio = (GPIO_TypeDef*)PortType::Helper::gpio;
-		gpio->MODER = (gpio->MODER & InvMask2) | (ModerAF << PinIndex*2);
-		gpio->OTYPER = (gpio->OTYPER & InvMask1) | (OyperOD << PinIndex);
-		gpio->OSPEEDR = (gpio->OSPEEDR & InvMask2) | (((uint32_t)speed) << PinIndex*2);
+		set_value_by_mask(MODER_ADDR, InvMask2, ModerAF << PinIndex*2);
+		set_value_by_mask(OTYPER_ADDR, InvMask1, OyperOD << PinIndex);
+		set_value_by_mask(OSPEEDR_ADDR, InvMask2, ((uint32_t)speed) << PinIndex*2);
 #endif
 	}
 
@@ -241,9 +235,8 @@ public:
 	{
 		constexpr uint32_t AfrIndex = PinIndex >> 3;
 		constexpr uint32_t Shift = (PinIndex & 0x7) * 4;
-		constexpr uint32_t Mask = ~(0xF << Shift);
-		auto *gpio = (GPIO_TypeDef*)PortType::Helper::gpio;
-		gpio->AFR[AfrIndex] = (gpio->AFR[AfrIndex] & Mask) | ((uint32_t)func << Shift);
+		constexpr uint32_t Mask = 0xF << Shift;
+		set_value_by_mask(AFR_ADDR + AfrIndex*4, Mask, (uint32_t)func << Shift);
 	}
 #endif
 
@@ -254,24 +247,25 @@ public:
 #if defined (HL_GPIO_VER1)
 		set_value_by_mask<uint32_t>(CR, InvMask4, (0b00/*analog in*/ << (Shift4+2)));
 #elif defined (HL_GPIO_VER2)
-		auto *gpio = (GPIO_TypeDef*)PortType::Helper::gpio;
-		gpio->MODER = (gpio->MODER & InvMask2) | (ModerAnalog << PinIndex*2);
-		gpio->PUPDR = (gpio->PUPDR & InvMask2);
+		set_value_by_mask(MODER_ADDR, InvMask2, ModerAnalog << PinIndex*2);
+		set_value_by_mask(PUPDR_ADDR, InvMask2, PupdrNone);
 #endif
 	}
 
 private:
-//	constexpr static GPIO_TypeDef *gpio = PortType::Helper::gpio;
 	constexpr static uint32_t BitMask = (1U << PinIndex);
+	constexpr static uintptr_t GPIO_ADDR = PortType::Helper::gpio;
+
 #if defined (HL_GPIO_VER1)
-	constexpr static uintptr_t CR = PortType::Helper::gpio + ((PinIndex < 8) ? offsetof(GPIO_TypeDef, CRL) : offsetof(GPIO_TypeDef, CRH));
+
+	constexpr static uintptr_t CR = GPIO_ADDR + ((PinIndex < 8) ? offsetof(GPIO_TypeDef, CRL) : offsetof(GPIO_TypeDef, CRH));
 
 	constexpr static uint32_t Shift4 = (PinIndex % 8)*4;
 	constexpr static uint32_t InvMask4 = (uint32_t)0b1111 << Shift4;
 
 #elif defined (HL_GPIO_VER2)
-	constexpr static uint32_t InvMask2 = ~(3U << PinIndex*2);
-	constexpr static uint32_t InvMask1 = ~BitMask;
+	constexpr static uint32_t InvMask2 = (3U << PinIndex*2);
+	constexpr static uint32_t InvMask1 = BitMask;
 	constexpr static uint32_t ModerInput  = 0;
 	constexpr static uint32_t ModerOutput = 1;
 	constexpr static uint32_t ModerAF     = 2;
@@ -281,9 +275,15 @@ private:
 	constexpr static uint32_t PupdrPullDown = 2;
 	constexpr static uint32_t OyperPP = 0;
 	constexpr static uint32_t OyperOD = 1;
+
+	constexpr static uintptr_t OSPEEDR_ADDR = GPIO_ADDR + offsetof(GPIO_TypeDef, OSPEEDR);
+	constexpr static uintptr_t MODER_ADDR = GPIO_ADDR + offsetof(GPIO_TypeDef, MODER);
+	constexpr static uintptr_t PUPDR_ADDR = GPIO_ADDR + offsetof(GPIO_TypeDef, PUPDR);
+	constexpr static uintptr_t AFR_ADDR = GPIO_ADDR + offsetof(GPIO_TypeDef, AFR);
+	constexpr static uintptr_t OTYPER_ADDR = GPIO_ADDR + offsetof(GPIO_TypeDef, OTYPER);
 #endif
-	constexpr static uintptr_t IDR = PortType::Helper::gpio + offsetof(GPIO_TypeDef, IDR);
-	constexpr static uintptr_t ODR = PortType::Helper::gpio + offsetof(GPIO_TypeDef, ODR);
+	constexpr static uintptr_t IDR = GPIO_ADDR + offsetof(GPIO_TypeDef, IDR);
+	constexpr static uintptr_t ODR = GPIO_ADDR + offsetof(GPIO_TypeDef, ODR);
 };
 
 #define HL_DECL_PINS(PORT) \

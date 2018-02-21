@@ -473,7 +473,7 @@ public:
 
 		HL_UI32REG(TIM_CCER) &= ~(TIM_CCER_CC1E << ccer_shift); // disable channel before configure
 
-		uint16_t ccmr = HL_UI32REG(tim + ChanHelper::ccmr_offset) & ~(0xF << ChanHelper::ccmr_shift);
+		uint16_t ccmr = HL_UI32REG(tim + ChanHelper::ccmr_offset) & ~(0xFF << ChanHelper::ccmr_shift);
 		uint16_t ccer = HL_UI32REG(TIM_CCER) & ~(0xF << ccer_shift);
 
 		ccmr |= ((uint16_t)mode << ChanHelper::ccmr_shift);
@@ -514,7 +514,7 @@ public:
 		uint16_t ccer = HL_UI32REG(TIM_CCER);
 		ccer &= ~(0xF << ccer_shift);
 		uint16_t ccmr = HL_UI32REG(tim + ChanHelper::ccmr_offset);
-		ccmr &= ~(0xF << ChanHelper::ccmr_shift);
+		ccmr &= ~(0xFF << ChanHelper::ccmr_shift);
 
 		ccmr |= ((uint16_t)mapping << ChanHelper::ccmr_shift); // channel mapping
 		ccmr |= ((uint16_t)prescaler << ChanHelper::ccmr_shift); // prescaler

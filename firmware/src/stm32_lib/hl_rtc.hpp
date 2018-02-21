@@ -2,6 +2,8 @@
 
 #include <stm32l1xx.h>
 #include <stdint.h>
+#include "hl_rcc.hpp"
+#include "hl_pwr.hpp"
 
 namespace hl {
 
@@ -56,14 +58,14 @@ inline void rtc_enable_write_protection()
 
 inline void rtc_enter_dt_init_mode()
 {
-	RTC->ISR |= RTC_ISR_INIT;
+	if (RTC->ISR & RTC_ISR_INITF) return;
+	RTC->ISR = RTC_ISR_INIT;
 	while (!(RTC->ISR & RTC_ISR_INITF)) {}
 }
 
 inline void rtc_leave_dt_init_mode()
 {
-	RTC->ISR &= ~RTC_ISR_INIT;
-	while (RTC->ISR & RTC_ISR_INITF) {}
+	RTC->ISR = ~RTC_ISR_INIT;
 }
 
 inline void rtc_set_bcd_value (uint8_t value, unsigned tens_shift, unsigned units_shift, uint32_t &dst)
@@ -91,6 +93,17 @@ inline bool rtc_is_calendar_initialized()
 	return RTC->ISR & RTC_ISR_INITS;
 }
 
+inline void rtc_init(bool do_reset)
+{
+	pwr_enable_interface();
+	pwr_disable_backup_write_protection();
+
+	if (do_reset) rcc_reset_rtc();
+	rcc_enable_lse();
+	rcc_set_rtc_clock(RTCClock::LSE);
+	rcc_enable_rtc();
+}
+
 
 // calendar
 
@@ -101,6 +114,7 @@ inline void rtc_init_date_and_time(
 {
 	detailed::rtc_disable_write_protection();
 	detailed::rtc_enter_dt_init_mode();
+
 	uint32_t tr = RTC->TR;
 	uint32_t dr = RTC->DR;
 
@@ -124,7 +138,6 @@ inline void rtc_init_date_and_time(
 
 inline void rtc_get_date(RTCDate &date)
 {
-	while (!(RTC->ISR & RTC_ISR_RSF)) {}
 	uint32_t dr = RTC->DR;
 	date.years = detailed::rtc_get_bcd_value(dr, RTC_DR_YT|RTC_DR_YU, 20, 16);
 	date.mon   = detailed::rtc_get_bcd_value(dr, RTC_DR_MT|RTC_DR_MU, 12,  8);
@@ -133,13 +146,11 @@ inline void rtc_get_date(RTCDate &date)
 
 inline void rtc_get_time(RTCTime &time)
 {
-	while (!(RTC->ISR & RTC_ISR_RSF)) {}
 	uint32_t tr = RTC->TR;
 	time.hours   = detailed::rtc_get_bcd_value(tr, RTC_TR_HT|RTC_TR_HU,   20, 16);
 	time.minutes = detailed::rtc_get_bcd_value(tr, RTC_TR_MNT|RTC_TR_MNU, 12,  8);
 	time.seconds = detailed::rtc_get_bcd_value(tr, RTC_TR_ST|RTC_TR_SU,    4,  0);
 }
-
 
 // Prescaler
 
@@ -184,29 +195,35 @@ inline void rtc_configure_wakeup_timer(
 	uint16_t           period,
 	RtcWakeUpInterrupt interrupt)
 {
+	// Disable the RTC registers Write protection
 	detailed::rtc_disable_write_protection();
-	detailed::rtc_enter_dt_init_mode();
+
+	// Disable the wakeup timer
+	RTC->CR &= ~RTC_CR_WUTE;
+
+	// Ensure access to Wakeup auto-reload counter and bits WUC KSEL[2:0] is allowed
+	while (!(RTC->ISR & RTC_ISR_WUTWF)) {}
+
+	// Program the value into the wakeup timer.
+	RTC->WUTR = period;
+
+	// Select the desired clock source
+	set_value_by_mask(RTC->CR, RTC_CR_WUCKSEL|RTC_CR_WUTIE, (uint32_t)clock|(uint32_t)interrupt);
+
+	// Re-enable the wakeup timer
+	RTC->CR |= RTC_CR_WUTE;
+
+	// Enable the RTC registers Write protection
+	detailed::rtc_enable_write_protection();
+}
+
+inline void rtc_disable_wakeup_timer()
+{
+	detailed::rtc_disable_write_protection();
 
 	RTC->CR &= ~RTC_CR_WUTE;
 	while (!(RTC->ISR & RTC_ISR_WUTWF)) {}
 
-	uint32_t cr = RTC->CR;
-	uint32_t wutr = RTC->WUTR;
-
-	cr &= ~(RTC_CR_WUCKSEL);
-	wutr &= ~RTC_WUTR_WUT;
-
-	cr |= (uint32_t)clock;
-	cr |= (uint32_t)interrupt;
-
-	wutr |= period;
-
-	RTC->WUTR = wutr;
-	RTC->CR = cr;
-
-	RTC->CR |= RTC_CR_WUTE;
-
-	detailed::rtc_leave_dt_init_mode();
 	detailed::rtc_enable_write_protection();
 }
 

@@ -70,6 +70,8 @@ public:
 	static void stop()
 	{
 		clear_periph_reg_bit<TIM_CR1, TIM_CR1_CEN>();
+		__DSB();
+		__NOP();
 	}
 
 	static void set_master_mode(TimMasterMode mode)
@@ -342,6 +344,8 @@ public:
 	{
 		static_assert(Chan >= 1 && Chan <= 4, "Wrong channel value");
 		set_periph_reg_bit<TIM_DIER, 1 << Chan>();
+		__DSB();
+		__NOP();
 	}
 
 	template <unsigned Chan>
@@ -349,6 +353,8 @@ public:
 	{
 		static_assert(Chan >= 1 && Chan <= 4, "Wrong channel value");
 		clear_periph_reg_bit<TIM_DIER, 1 << Chan>();
+		__DSB();
+		__NOP();
 	}
 
 	template <unsigned Chan>
@@ -364,21 +370,21 @@ public:
 	static void enable_cc_dma_request()
 	{
 		static_assert(Chan >= 1 && Chan <= 4, "Wrong channel value");
-		set_periph_reg_bit<TIM_DIER, 1 << (Chan+8)>();
+		set_periph_reg_bit<TIM_DIER, detailed::TimerChanHelper<Chan>::cc_dma>();
 	}
 
 	template <unsigned Chan>
 	static void disable_cc_dma_request()
 	{
 		static_assert(Chan >= 1 && Chan <= 4, "Wrong channel value");
-		clear_periph_reg_bit<TIM_DIER, 1 << (Chan+8)>();
+		clear_periph_reg_bit<TIM_DIER, detailed::TimerChanHelper<Chan>::cc_dma>();
 	}
 
 	template <unsigned Chan>
 	static bool is_cc_dma_request_enabled()
 	{
 		static_assert(Chan >= 1 && Chan <= 4, "Wrong channel value");
-		return get_periph_reg_bit<TIM_DIER, 1 << (Chan+8)>();
+		return get_periph_reg_bit<TIM_DIER, detailed::TimerChanHelper<Chan>::cc_dma>();
 	}
 
 
@@ -578,10 +584,21 @@ private:
 
 ///////////////////////////////////////////////////////////////////////////////
 
+#if defined(TIM1) && defined(RCC_APB2ENR_TIM1EN)
+namespace detailed { template <> struct TimerHelper<1>
+{
+	static constexpr uintptr_t tim = TIM1_BASE;
+	static constexpr uint32_t RccBit = RCC_APB2ENR_TIM1EN;
+	static constexpr uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2ENR);
+	static constexpr uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2RSTR);
+	static constexpr IRQn_Type IRQn = TIM1_UP_TIM10_IRQn;
+}; }
+typedef GeneralPurposeTimer<1> Timer1;
+#endif // TIM1
+
 #if defined(TIM2) && defined(RCC_APB1ENR_TIM2EN)
 namespace detailed { template <> struct TimerHelper<2>
 {
-	// RCC_TypeDef
 	static constexpr uintptr_t tim = TIM2_BASE;
 	static constexpr uint32_t RccBit = RCC_APB1ENR_TIM2EN;
 	static constexpr uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB1ENR);
@@ -644,7 +661,7 @@ namespace detailed { template <> struct TimerHelper<6>
 	static constexpr uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB1RSTR);
 #if defined(HL_STM32L1XX)
 	static constexpr IRQn_Type IRQn = TIM6_IRQn;
-#elif defined(HL_STM32F3XX)
+#elif defined(HL_STM32F3XX) || defined(HL_STM32F4XX)
 	static constexpr IRQn_Type IRQn = TIM6_DAC_IRQn;
 #endif
 }; }
@@ -674,7 +691,11 @@ namespace detailed { template <> struct TimerHelper<9>
 	static constexpr uint32_t RccBit = RCC_APB2ENR_TIM9EN;
 	static constexpr uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2ENR);
 	static constexpr uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2RSTR);
+#ifdef HL_STM32F4XX
+	static constexpr IRQn_Type IRQn = TIM1_BRK_TIM9_IRQn;
+#else
 	static constexpr IRQn_Type IRQn = TIM9_IRQn;
+#endif
 }; }
 typedef GeneralPurposeTimer<9> Timer9;
 #endif // TIM9
@@ -688,7 +709,11 @@ namespace detailed { template <> struct TimerHelper<10>
 	static constexpr uint32_t RccBit = RCC_APB2ENR_TIM10EN;
 	static constexpr uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2ENR);
 	static constexpr uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2RSTR);
+#ifdef HL_STM32F4XX
+	static constexpr IRQn_Type IRQn = TIM1_UP_TIM10_IRQn;
+#else
 	static constexpr IRQn_Type IRQn = TIM10_IRQn;
+#endif
 }; }
 typedef GeneralPurposeTimer<10> Timer10;
 #endif // TIM10
@@ -702,7 +727,11 @@ namespace detailed { template <> struct TimerHelper<11>
 	static constexpr uint32_t RccBit = RCC_APB2ENR_TIM11EN;
 	static constexpr uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2ENR);
 	static constexpr uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2RSTR);
+#ifdef HL_STM32F4XX
+	static constexpr IRQn_Type IRQn = TIM1_TRG_COM_TIM11_IRQn;
+#else
 	static constexpr IRQn_Type IRQn = TIM11_IRQn;
+#endif
 }; }
 typedef GeneralPurposeTimer<11> Timer11;
 #endif // TIM11
@@ -770,6 +799,7 @@ template <> struct TimerChanHelper<1>
 	static constexpr uint32_t ccmr_offset = offsetof(TIM_TypeDef, CCMR1);
 	static constexpr uint32_t ccr_offset = offsetof(TIM_TypeDef, CCR1);
 	static constexpr unsigned ccmr_shift = 0;
+	static constexpr uint32_t cc_dma = TIM_DIER_CC1DE;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -779,6 +809,7 @@ template <> struct TimerChanHelper<2>
 	static constexpr uint32_t ccmr_offset = offsetof(TIM_TypeDef, CCMR1);
 	static constexpr uint32_t ccr_offset = offsetof(TIM_TypeDef, CCR2);
 	static constexpr unsigned ccmr_shift = 8;
+	static constexpr uint32_t cc_dma = TIM_DIER_CC2DE;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -788,6 +819,7 @@ template <> struct TimerChanHelper<3>
 	static constexpr uint32_t ccmr_offset = offsetof(TIM_TypeDef, CCMR2);
 	static constexpr uint32_t ccr_offset = offsetof(TIM_TypeDef, CCR3);
 	static constexpr unsigned ccmr_shift = 0;
+	static constexpr uint32_t cc_dma = TIM_DIER_CC3DE;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -797,6 +829,7 @@ template <> struct TimerChanHelper<4>
 	static constexpr uint32_t ccmr_offset = offsetof(TIM_TypeDef, CCMR2);
 	static constexpr uint32_t ccr_offset = offsetof(TIM_TypeDef, CCR4);
 	static constexpr unsigned ccmr_shift = 8;
+	static constexpr uint32_t cc_dma = TIM_DIER_CC4DE;
 };
 
 ///////////////////////////////////////////////////////////////////////////////

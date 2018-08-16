@@ -57,7 +57,7 @@ enum class LinBreakLen
 	_11_bit = USART_CR2_LBDL,
 };
 
-#ifdef SampleBitMethod
+#ifdef USART_CR3_ONEBIT
 enum class SampleBitMethod
 {
 	Three = 0,
@@ -490,46 +490,49 @@ private:
 };
 
 
-namespace detailed  {
-
 #ifdef USART1
 
-template<> struct UsartDevice<1>
+namespace detailed { template<> struct UsartDevice<1>
 {
 	static constexpr uint32_t RccBit = RCC_APB2ENR_USART1EN;
 	static constexpr uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2ENR);
 	static constexpr uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2RSTR);
 	static constexpr uintptr_t usart_addr = USART1_BASE;
 	static constexpr IRQn_Type IRQn = USART1_IRQn;
-};
+};}
+
+typedef Usart<1> Usart1;
 
 #endif
 
 #ifdef USART2
 
-template<> struct UsartDevice<2>
+namespace detailed { template<> struct UsartDevice<2>
 {
 	static constexpr uint32_t RccBit = RCC_APB1ENR_USART2EN;
 	static constexpr uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB1ENR);
 	static constexpr uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB1RSTR);
 	static constexpr uintptr_t usart_addr = USART2_BASE;
 	static constexpr IRQn_Type IRQn = USART2_IRQn;
-};
+};}
+
+typedef Usart<2> Usart2;
 
 #endif
 
 #ifdef USART3
 
-template<> struct UsartDevice<3>
+typedef Usart<3> Usart3;
+
+namespace detailed { template<> struct UsartDevice<3>
 {
 	static constexpr uint32_t RccBit = RCC_APB1ENR_USART3EN;
 	static constexpr uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB1ENR);
 	static constexpr uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB1RSTR);
 	static constexpr uintptr_t usart_addr = USART3_BASE;
 	static constexpr IRQn_Type IRQn = USART3_IRQn;
-};
+};}
 
 #endif
 
-} // namespace detailed
 } // namespace hl

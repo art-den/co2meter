@@ -3,7 +3,7 @@
 
 # compile options
 	MCU			= cortex-m3
-	OPTIMIZE	= -O3
+	OPTIMIZE	= -O2
 	USE_LTO		= YES
 	CHIP		= STM32F103xB
 
@@ -56,9 +56,10 @@
 	INCS	:= $(patsubst %, -I "%", $(INCLUDE))
 
 #calc obj files list
-	OBJS	:= $(wildcard $(addsuffix /*.cpp, $(DIRS)))
+	OBJS	:= $(wildcard $(addsuffix /startup_$(CHIP).S, $(DIRS)))
 	OBJS	+= $(wildcard $(addsuffix /*.c, $(DIRS)))
-	OBJS	+= $(wildcard $(addsuffix /startup_$(CHIP).S, $(DIRS)))
+	OBJS	+= $(wildcard $(addsuffix /*.cpp, $(DIRS)))
+	
 	OBJS	:= $(notdir $(OBJS))
 	OBJS	:= $(OBJS:.cpp=.o)
 	OBJS	:= $(OBJS:.c=.o)
@@ -83,7 +84,7 @@
 
 	CXXFLAGS	= $(FLAGS)
 	CXXFLAGS	+= $(OPTIMIZE)
-	CXXFLAGS	+= -g
+	CXXFLAGS	+= -g -Wno-register
 	CXXFLAGS	+= -fno-exceptions -fno-rtti -fno-unwind-tables
 	CXXFLAGS	+= -ffunction-sections -fdata-sections
 	CXXFLAGS	+= -fno-threadsafe-statics
@@ -121,7 +122,7 @@ build:
 
 start:
 	@echo --- building $(TARGET)
-	@echo OBJS=$(OBJS)
+#	@echo OBJS=$(OBJS)
 
 $(LSS): $(ELF) makefile
 	@echo --- making asm-lst...
@@ -161,10 +162,10 @@ $(OBJDIR)/%.o: %.S makefile
 dirs: $(OBJDIR) $(DSTDIR)
 
 $(OBJDIR):
-	-@$(MD) $(OBJDIR)
+	-@$(MD) "$(OBJDIR)"
 
 $(DSTDIR):
-	-@$(MD) $(DSTDIR)
+	-@$(MD) "$(DSTDIR)"
 
 clean:
 	-@$(RM) $(OBJDIR)/*.d 2>/dev/null

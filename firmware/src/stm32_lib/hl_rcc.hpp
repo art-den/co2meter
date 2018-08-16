@@ -59,13 +59,13 @@ inline bool rcc_is_security_system_enabled()
 
 // PLL
 
-inline void rcc_enable_ppl()
+inline void rcc_enable_pll()
 {
 	RCC->CR |= RCC_CR_PLLON;
 	while (!(RCC->CR & RCC_CR_PLLRDY)) {}
 }
 
-inline void rcc_disable_ppl()
+inline void rcc_disable_pll()
 {
 	RCC->CR &= ~RCC_CR_PLLON;
 	while (RCC->CR & RCC_CR_PLLRDY) {}
@@ -73,7 +73,7 @@ inline void rcc_disable_ppl()
 
 #ifdef RCC_CFGR_PLLDIV
 
-enum class PPLHSEDiv
+enum class PLLHSEDiv
 {
 	No = RCC_CFGR_PLLDIV1, // PLL clock output = PLLVCO
 	_2 = RCC_CFGR_PLLDIV2, // PLL clock output = PLLVCO / 2
@@ -81,7 +81,7 @@ enum class PPLHSEDiv
 	_4 = RCC_CFGR_PLLDIV4, // PLL clock output = PLLVCO / 4
 };
 
-inline void rcc_set_ppl_output_division(PPLHSEDiv value)
+inline void rcc_set_pll_output_division(PLLHSEDiv value)
 {
 	uint32_t cfgr = RCC->CFGR;
 	cfgr &= ~RCC_CFGR_PLLDIV;
@@ -91,6 +91,61 @@ inline void rcc_set_ppl_output_division(PPLHSEDiv value)
 	__DSB();
 }
 
+#endif
+
+#if defined(RCC_PLLCFGR_PLLQ)
+enum class PLLUsbDiv
+{
+	No  = 1 << RCC_PLLCFGR_PLLQ_Pos,
+	_2  = 2 << RCC_PLLCFGR_PLLQ_Pos,
+	_3  = 3 << RCC_PLLCFGR_PLLQ_Pos,
+	_4  = 4 << RCC_PLLCFGR_PLLQ_Pos,
+	_5  = 5 << RCC_PLLCFGR_PLLQ_Pos,
+	_6  = 6 << RCC_PLLCFGR_PLLQ_Pos,
+	_7  = 7 << RCC_PLLCFGR_PLLQ_Pos,
+	_8  = 8 << RCC_PLLCFGR_PLLQ_Pos,
+	_9  = 9 << RCC_PLLCFGR_PLLQ_Pos,
+	_10 = 10 << RCC_PLLCFGR_PLLQ_Pos,
+	_11 = 11 << RCC_PLLCFGR_PLLQ_Pos,
+	_12 = 12 << RCC_PLLCFGR_PLLQ_Pos,
+	_13 = 13 << RCC_PLLCFGR_PLLQ_Pos,
+	_14 = 14 << RCC_PLLCFGR_PLLQ_Pos,
+	_15 = 15 << RCC_PLLCFGR_PLLQ_Pos,
+};
+
+inline void rcc_set_pll_usb_division(PLLUsbDiv value)
+{
+	set_value_by_mask(RCC->PLLCFGR, RCC_PLLCFGR_PLLQ, (uint32_t)value);
+}
+#endif
+
+#if defined(RCC_PLLCFGR_PLLP)
+enum class PLLSysDiv
+{
+	_2 = 0 << RCC_PLLCFGR_PLLP_Pos,
+	_4 = 1 << RCC_PLLCFGR_PLLP_Pos,
+	_6 = 2 << RCC_PLLCFGR_PLLP_Pos,
+	_8 = 3 << RCC_PLLCFGR_PLLP_Pos,
+};
+
+inline void rcc_set_pll_sys_division(PLLSysDiv value)
+{
+	set_value_by_mask(RCC->PLLCFGR, RCC_PLLCFGR_PLLP, (uint32_t)value);
+}
+#endif
+
+#if defined(RCC_PLLCFGR_PLLM)
+inline void rcc_set_pll_input_division(uint8_t value)
+{
+	set_value_by_mask(RCC->PLLCFGR, RCC_PLLCFGR_PLLM, ((uint32_t)value << RCC_PLLCFGR_PLLM_Pos));
+}
+#endif
+
+#if defined(RCC_PLLCFGR_PLLN)
+inline void rcc_set_pll_multiplication(uint16_t value)
+{
+	set_value_by_mask(RCC->PLLCFGR, RCC_PLLCFGR_PLLN, ((uint32_t)value << RCC_PLLCFGR_PLLN_Pos));
+}
 #endif
 
 #ifdef RCC_CFGR2_PREDIV
@@ -115,7 +170,7 @@ enum class PPLHSEDiv
 	_16 = RCC_CFGR2_PREDIV_DIV16,
 };
 
-inline void rcc_set_hse_ppl_division(PPLHSEDiv value)
+inline void rcc_set_hse_pll_division(PPLHSEDiv value)
 {
 	uint32_t cfgr2 = RCC->CFGR2;
 	cfgr2 &= ~RCC_CFGR2_PREDIV;
@@ -127,7 +182,13 @@ inline void rcc_set_hse_ppl_division(PPLHSEDiv value)
 
 #endif
 
-enum class PPLMult
+#ifdef RCC_CFGR_PLLMULL
+#define RCC_CFGR_PLLMUL RCC_CFGR_PLLMULL
+#endif
+
+#ifdef RCC_CFGR_PLLMUL
+
+enum class PLLMult
 {
 #ifdef RCC_CFGR_PLLMULL2
 	_2 = RCC_CFGR_PLLMULL2,
@@ -230,11 +291,8 @@ enum class PPLMult
 #endif
 };
 
-#ifdef RCC_CFGR_PLLMULL
-#define RCC_CFGR_PLLMUL RCC_CFGR_PLLMULL
-#endif
 
-inline void rcc_set_ppl_mult_factor(PPLMult value)
+inline void rcc_set_pll_mult_factor(PLLMult value)
 {
 	uint32_t cfgr = RCC->CFGR;
 	cfgr &= ~RCC_CFGR_PLLMUL;
@@ -243,6 +301,8 @@ inline void rcc_set_ppl_mult_factor(PPLMult value)
 	__DSB();
 	__DSB();
 }
+
+#endif
 
 #ifdef RCC_CFGR_PLLXTPRE_HSE_DIV2
 
@@ -259,20 +319,24 @@ inline void rcc_disable_hse_div2_for_pll()
 #endif
 
 
-enum class PPLSource
+enum class PLLSource
 {
+#if defined RCC_CFGR_PLLSRC
 	HSI = 0,               // HSI oscillator clock selected as PLL input clock
 	HSE = RCC_CFGR_PLLSRC, // HSE oscillator clock selected as PLL input clock
+#elif defined RCC_PLLCFGR_PLLSRC
+	HSI = RCC_PLLCFGR_PLLSRC_HSI,
+	HSE = RCC_PLLCFGR_PLLSRC_HSE,
+#endif
 };
 
-inline void rcc_set_ppl_source(PPLSource source)
+inline void rcc_set_pll_source(PLLSource source)
 {
-	uint32_t cfgr = RCC->CFGR;
-	cfgr &= ~RCC_CFGR_PLLSRC;
-	cfgr |= (uint32_t)source;
-	RCC->CFGR = cfgr;
-	__DSB();
-	__DSB();
+#if defined RCC_CFGR_PLLSRC
+	set_value_by_mask(RCC->CFGR, RCC_CFGR_PLLSRC, (uint32_t)source);
+#elif defined RCC_PLLCFGR_PLLSRC
+	set_value_by_mask(RCC->PLLCFGR, RCC_PLLCFGR_PLLSRC, (uint32_t)source);
+#endif
 }
 
 
@@ -532,17 +596,36 @@ inline void rcc_disable_syscfg_clock()
 
 enum class RTCClock
 {
-#ifdef RCC_CSR_RTCSEL
-	No  = RCC_CSR_RTCSEL_NOCLOCK, // No clock
-	LSE = RCC_CSR_RTCSEL_LSE,     // LSE oscillator clock used as RTC/LCD clock
-	LSI = RCC_CSR_RTCSEL_LSI,     // LSI oscillator clock used as RTC/LCD clock
-	HSE = RCC_CSR_RTCSEL_HSE,     // HSE oscillator clock divided by a programmable prescaler
+#if defined(RCC_CSR_RTCSEL_NOCLOCK)
+	No = RCC_CSR_RTCSEL_NOCLOCK,
+#elif defined(RCC_BDCR_RTCSEL_NOCLOCK)
+	No  = RCC_BDCR_RTCSEL_NOCLOCK,
+#else
+	No  = 0,
 #endif
-#ifdef RCC_BDCR_RTCSEL
-	No  = RCC_BDCR_RTCSEL_NOCLOCK, // No clock
-	LSE = RCC_BDCR_RTCSEL_LSE,     // LSE oscillator clock used as RTC/LCD clock
-	LSI = RCC_BDCR_RTCSEL_LSI,     // LSI oscillator clock used as RTC/LCD clock
+
+#if defined(RCC_CSR_RTCSEL_LSE)
+	LSE = RCC_CSR_RTCSEL_LSE,     // LSE oscillator clock used as RTC/LCD clock
+#elif defined(RCC_BDCR_RTCSEL_LSE)
+	LSE = RCC_BDCR_RTCSEL_LSE,
+#else
+	LSE = RCC_BDCR_RTCSEL_0,
+#endif
+
+#if defined(RCC_CSR_RTCSEL_LSI)
+	LSI = RCC_CSR_RTCSEL_LSI,
+#elif defined (RCC_BDCR_RTCSEL_LSI)
+	LSI = RCC_BDCR_RTCSEL_LSI,
+#else
+	LSI = RCC_BDCR_RTCSEL_1,
+#endif
+
+#if defined(RCC_CSR_RTCSEL_HSE)
+	HSE = RCC_CSR_RTCSEL_HSE,
+#elif defined(RCC_BDCR_RTCSEL_HSE)
 	HSE = RCC_BDCR_RTCSEL_HSE,     // HSE oscillator clock divided by a programmable prescaler
+#else
+	HSE = RCC_BDCR_RTCSEL_0|RCC_BDCR_RTCSEL_1
 #endif
 };
 
@@ -552,10 +635,7 @@ inline void rcc_set_rtc_clock(RTCClock clock)
 	set_value_by_mask(RCC->CSR, RCC_CSR_RTCSEL, (uint32_t)clock);
 #endif
 #ifdef RCC_BDCR_RTCSEL
-	auto bdcr = RCC->BDCR;
-	bdcr &= ~RCC_BDCR_RTCSEL;
-	bdcr |= (uint32_t)clock;
-	RCC->BDCR = bdcr;
+	set_value_by_mask(RCC->BDCR, RCC_BDCR_RTCSEL, (uint32_t)clock);
 #endif
 
 }
@@ -575,10 +655,7 @@ enum class APB2Prescaler
 
 inline void rcc_set_apb2_prescaler(APB2Prescaler prescaler)
 {
-	uint32_t cfgr = RCC->CFGR;
-	cfgr &= ~RCC_CFGR_PPRE2;
-	cfgr |= (uint32_t)prescaler;
-	RCC->CFGR = cfgr;
+	set_value_by_mask(RCC->CFGR, RCC_CFGR_PPRE2, (uint32_t)prescaler);
 	__DSB();
 	__DSB();
 }
@@ -597,10 +674,7 @@ enum class APB1Prescaler
 
 inline void rcc_set_apb1_prescaler(APB1Prescaler prescaler)
 {
-	uint32_t cfgr = RCC->CFGR;
-	cfgr &= ~RCC_CFGR_PPRE1;
-	cfgr |= (uint32_t)prescaler;
-	RCC->CFGR = cfgr;
+	set_value_by_mask(RCC->CFGR, RCC_CFGR_PPRE1, (uint32_t)prescaler);
 	__DSB();
 	__DSB();
 }
@@ -623,10 +697,7 @@ enum class AHBPrescaler
 
 inline void rcc_set_ahb_prescaler(AHBPrescaler prescaler)
 {
-	uint32_t cfgr = RCC->CFGR;
-	cfgr &= ~RCC_CFGR_HPRE;
-	cfgr |= (uint32_t)prescaler;
-	RCC->CFGR = cfgr;
+	set_value_by_mask(RCC->CFGR, RCC_CFGR_HPRE, (uint32_t)prescaler);
 	__DSB();
 	__DSB();
 }
@@ -653,13 +724,10 @@ enum class SystemClock
 
 inline void rcc_set_sys_clock(SystemClock clock)
 {
-	uint32_t cfgr = RCC->CFGR;
-	cfgr &= ~RCC_CFGR_SW;
-	cfgr |= (uint32_t)clock;
-	RCC->CFGR = cfgr;
+	set_value_by_mask(RCC->CFGR, RCC_CFGR_SW, (uint32_t)clock);
 	__DSB();
 	__DSB();
-	while ((RCC_CFGR_SWS & RCC->CFGR) != ((uint32_t)clock << 2)) {}
+	while ((RCC_CFGR_SWS & RCC->CFGR) != ((uint32_t)clock << RCC_CFGR_SWS_Pos)) {}
 }
 
 #ifdef HL_STM32L1XX
@@ -673,31 +741,31 @@ inline void rcc_init_msi_for_other_clock_config()
 	rcc_set_sys_clock(SystemClock::MSI);
 }
 
-inline void rcc_init_ppl_speed_and_source(PPLMult mult, PPLHSEDiv div, PPLSource source)
+inline void rcc_init_ppl_speed_and_source(PLLMult mult, PLLHSEDiv div, PLLSource source)
 {
-	rcc_disable_ppl();
-	rcc_set_ppl_source(source);
-	rcc_set_ppl_output_division(div);
-	rcc_set_ppl_mult_factor(mult);
-	rcc_enable_ppl();
+	rcc_disable_pll();
+	rcc_set_pll_source(source);
+	rcc_set_pll_output_division(div);
+	rcc_set_pll_mult_factor(mult);
+	rcc_enable_pll();
 }
 
 } // namespace detailed
 
-inline void rcc_init_and_select_hse_clock(PPLMult mult, PPLHSEDiv div, bool oscillator_bypass)
+inline void rcc_init_and_select_hse_clock(PLLMult mult, PLLHSEDiv div, bool oscillator_bypass)
 {
 	detailed::rcc_init_msi_for_other_clock_config();
 	rcc_enable_hse(oscillator_bypass);
-	detailed::rcc_init_ppl_speed_and_source(mult, div, PPLSource::HSE);
+	detailed::rcc_init_ppl_speed_and_source(mult, div, PLLSource::HSE);
 	rcc_set_sys_clock(SystemClock::PLL);
 	rcc_disable_msi();
 }
 
-inline void rcc_init_and_select_hsi_clock(PPLMult mult, PPLHSEDiv div)
+inline void rcc_init_and_select_hsi_clock(PLLMult mult, PLLHSEDiv div)
 {
 	detailed::rcc_init_msi_for_other_clock_config();
 	rcc_enable_hsi();
-	detailed::rcc_init_ppl_speed_and_source(mult, div, PPLSource::HSI);
+	detailed::rcc_init_ppl_speed_and_source(mult, div, PLLSource::HSI);
 	rcc_set_sys_clock(SystemClock::PLL);
 	rcc_disable_msi();
 }

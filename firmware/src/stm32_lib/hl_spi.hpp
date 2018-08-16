@@ -149,7 +149,7 @@ public:
 	}
 
 private:
-	static constexpr uintptr_t spi_addr = Helper::spi_addr;
+	static constexpr uintptr_t spi_addr = Helper::spi_addr; 
 	static constexpr uintptr_t sr_addr = spi_addr + offsetof(SPI_TypeDef, SR);
 	static constexpr uintptr_t cr1_addr = spi_addr + offsetof(SPI_TypeDef, CR1);
 	static constexpr uintptr_t cr2_addr = spi_addr + offsetof(SPI_TypeDef, CR2);

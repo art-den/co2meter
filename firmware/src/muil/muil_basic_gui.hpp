@@ -135,6 +135,7 @@ Size     display_get_text_size(const FontInfo &font, const wchar_t *text);
 uint16_t display_get_font_height(const FontInfo &font);
 
 void     default_display_paint_character(int x0, int y0, const uint8_t *data, uint8_t width, uint8_t height, const Color &color, const Color *bg_color);
+void     default_display_fill_rect(const Rect &rect, const Color &color);
 
 } // namespace muil
 

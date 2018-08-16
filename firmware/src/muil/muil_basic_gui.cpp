@@ -498,5 +498,26 @@ void default_display_paint_character(
 	}
 }
 
+void default_display_fill_rect(const Rect &rect, const Color &color)
+{
+	const int dwidth = display_get_width();
+	const int dheight = display_get_height();
+	int x1 = rect.x1;
+	int y1 = rect.y1;
+	int x2 = rect.x2;
+	int y2 = rect.y2;
+	if ((x1 < 0) && (x2 < 0)) return;
+	if ((x1 >= dwidth) && (x2 >= dwidth)) return;
+	if ((y1 < 0) && (y2 < 0)) return;
+	if ((y1 >= dheight) && (y2 >= dheight)) return;
+	if (x1 < 0) x1 = 0;
+	if (x2 >= dwidth) x2 = dwidth-1;
+	if (y1 < 0) y1 = 0;
+	if (y2 >= dheight) y2 = dheight-1;
+	for (int x = x1; x <= x2; x++)
+		for (int y = y1; y <= y2; y++)
+			display_set_point(x, y, color);
+}
+
 
 } // namespace muil

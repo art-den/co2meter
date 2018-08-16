@@ -7,9 +7,58 @@
 namespace hl
 {
 
-//#if defined(HL_STM32F1XX)
+#if defined(HL_STM32F4XX)
 
-//#endif
+inline void flash_enable_data_cache()
+{
+	set_periph_reg_bit<FLASH_BASE + offsetof(FLASH_TypeDef, ACR), FLASH_ACR_DCEN>();
+}
+
+inline void flash_disable_data_cache()
+{
+	clear_periph_reg_bit<FLASH_BASE + offsetof(FLASH_TypeDef, ACR), FLASH_ACR_DCEN>();
+}
+
+inline void flash_enable_instructions_cache()
+{
+	set_periph_reg_bit<FLASH_BASE + offsetof(FLASH_TypeDef, ACR), FLASH_ACR_ICEN>();
+}
+
+inline void flash_disable_instructions_cache()
+{
+	clear_periph_reg_bit<FLASH_BASE + offsetof(FLASH_TypeDef, ACR), FLASH_ACR_ICEN>();
+}
+
+inline void flash_enable_prefetch()
+{
+	set_periph_reg_bit<FLASH_BASE + offsetof(FLASH_TypeDef, ACR), FLASH_ACR_PRFTEN>();
+}
+
+inline void flash_disable_prefetch()
+{
+	clear_periph_reg_bit<FLASH_BASE + offsetof(FLASH_TypeDef, ACR), FLASH_ACR_PRFTEN>();
+}
+
+enum class FlashLatency
+{
+	_0 = FLASH_ACR_LATENCY_0WS,
+	_1 = FLASH_ACR_LATENCY_1WS,
+	_2 = FLASH_ACR_LATENCY_2WS,
+	_3 = FLASH_ACR_LATENCY_3WS,
+	_4 = FLASH_ACR_LATENCY_4WS,
+	_5 = FLASH_ACR_LATENCY_5WS,
+	_6 = FLASH_ACR_LATENCY_6WS,
+	_7 = FLASH_ACR_LATENCY_7WS,
+};
+
+inline void flash_set_latency(FlashLatency latency)
+{
+	set_value_by_mask(FLASH->ACR, FLASH_ACR_LATENCY, (uint32_t)latency);
+	while ((FLASH->ACR&FLASH_ACR_LATENCY) != (uint32_t)latency) {}
+}
+
+
+#endif
 
 #if defined(HL_STM32F3XX) || defined(HL_STM32F1XX)
 

@@ -3,31 +3,158 @@
 #include "gui.hpp"
 #include "hardware.hpp"
 #include "co2unit.hpp"
-#include "sound.hpp"
 #include "config.hpp"
 
 #include "stm32_lib/hl_dwt.hpp"
 #include "stm32_lib/hl_tim.hpp"
+#include "stm32_lib/hl_dma.hpp"
 
-#include "muil_font_firasans_16_ru.hpp"
-#include "muil_font_firamono_72_digits.hpp"
+#include "muil_basic_gui.hpp"
+#include "muil_font_firasans_8_ru.hpp"
+#include "muil_font_firasans_20_digits.hpp"
 #include "muil_utils.hpp"
+
+#include "ledmatrix_lib/hub75_rgb_controller.hpp"
+#include "ledmatrix_lib/hub75_rgb_screen.hpp"
 
 using namespace muil;
 using namespace hl;
 
-static DisplayDriver display;
+//============================ LED-screen hardware =============================
 
-IMPLEMENT_ILI9341_DISPLAY(display)
+namespace lm = ledmatrix;
+
+using Screen = lm::Hub75RGBScreen555<1, 1, 64, 64>;
+
+constexpr unsigned TimersClock = SysClockFreq;
+constexpr unsigned RowScanPeriod = 400;
+
+typedef hl::PB Hub75Port;
+
+typedef hl::PB0 R1Pin;
+typedef hl::PB1 R2Pin;
+typedef hl::PB3 G1Pin;
+typedef hl::PB4 G2Pin;
+typedef hl::PB5 B1Pin;
+typedef hl::PB6 B2Pin;
+typedef hl::PB7 APin;
+typedef hl::PB8 BPin;
+typedef hl::PB9 CPin;
+typedef hl::PB10 DPin;
+typedef hl::PB11 EPin;
+typedef hl::PB12 OEPin;
+typedef hl::PB13 LatPin;
+typedef hl::PB14 ClkPin;
+
+typedef hl::Timer2 DmaStransTimer;
+typedef hl::Dma1_Controller TransDma;
+typedef hl::Dma1_Chan2 TransDmaChan;
+
+typedef hl::Timer1 RowScanTimer;
+#define RowScanTimer_IRQHandler TIM1_UP_IRQHandler
+
+typedef hl::Timer3 BamTimer;
+#define BamTimer_IRQHandler TIM3_IRQHandler
+
+using Pins = lm::Scan32Pins<
+	R1Pin, R2Pin, G1Pin, G2Pin, B1Pin, B2Pin,
+	APin, BPin, CPin, DPin, EPin,
+	OEPin, LatPin, ClkPin
+>;
+
+using Line = lm::Hub75LineHardware<
+	Hub75Port,
+	Pins,
+	TransDmaChan, 
+	-1, // DMA channel index. Used in STM32F4 DMA controllers
+	-1  // Timer PWM channel for Memory -> DMA -> GPIO transfer. -1 is for using update event
+>;
+
+using LineHardwareItems = lm::Hub75LineHardwareItems<Line>;
+
+using Controller = lm::Hub75Controller<
+	TimersClock,
+	RowScanPeriod,
+	Screen,
+	LineHardwareItems, 
+	TransDma,
+	DmaStransTimer,
+	RowScanTimer,
+	BamTimer,
+	15
+>;
+
+
+static Screen screen;
+static Controller controller { screen };
+
+extern "C" void RowScanTimer_IRQHandler()
+{
+	DebugPin::on();
+	controller.process_row_scan_timer_interrupt();	
+	DebugPin::off();
+}
+
+extern "C" void BamTimer_IRQHandler()
+{
+	controller.process_bam_timer_interrupt();
+}
+
+
+//========================= LED-screen implementation ==========================
+
+unsigned muil::display_get_width()
+{
+	return Screen::width;
+}
+
+unsigned muil::display_get_height()
+{
+	return Screen::height;
+}
+
+void muil::display_set_point(
+	int         x, 
+	int         y, 
+	const Color &color)
+{
+	if (x < 0) return;
+	if (x >= (int)Screen::width) return;
+	if (y < 0) return;
+	if (y >= (int)Screen::height) return;
+	screen.set_pixel(x, y, color.r, color.g, color.b);
+}
+
+
+void muil::display_paint_character(
+	int           x0, 
+	int           y0, 
+	const uint8_t *data, 
+	uint8_t       width, 
+	uint8_t       height, 
+	const Color   &color, 
+	const Color   *bg_color)
+{
+	default_display_paint_character(x0, y0, data, width, height, color, bg_color);
+}
+
+void muil::display_fill_rect(
+	const Rect  &rect, 
+	const Color &color)
+{
+	default_display_fill_rect(rect, color);
+}
+
+//==============================================================================
+
 
 void muil::delay_ms(uint16_t milliseconds)
 {
-	Delay<SysFreq>::exec_ms(milliseconds);
+	Delay<SysClockFreq>::exec_ms(milliseconds);
 }
 
 constexpr unsigned HistoryHours = 12;
 constexpr unsigned AfterStartIgnorePeriod = 4*60; // секунд
-
 
 static volatile unsigned start_measure_cnt = 0;
 static volatile unsigned after_start_counter = 0;
@@ -45,36 +172,37 @@ enum class LedMode
 static volatile LedMode led_mode;
 
 // История замеров
-constexpr unsigned DayValuesCnt = 240;
+constexpr unsigned DayValuesCnt = Screen::width;
 static uint16_t day_values[DayValuesCnt];
 static uint16_t day_values_ptr = 0;
 
 Color get_color_for_value(
 	uint16_t    value,
+	uint16_t    ok_value,
 	uint16_t    warn_value,
 	uint16_t    alarm_value,
 	const Color &good_color,
 	const Color &warn_color,
 	const Color &alarm_color)
 {
-	if (value <= warn_value) return good_color;
+	if (value <= ok_value) return good_color;
 	if (value >= alarm_value) return alarm_color;
 
 	uint16_t v1 = 0;
 	uint16_t v2 = 0;
 	const Color *color1 = nullptr;
 	const Color *color2 = nullptr;
-	uint16_t middle_value = (warn_value + alarm_value) / 2;
-	if (value < middle_value)
+	
+	if (value < warn_value)
 	{
-		v1 = warn_value;
-		v2 = middle_value;
+		v1 = ok_value;
+		v2 = warn_value;
 		color1 = &good_color;
 		color2 = &warn_color;
 	}
 	else
 	{
-		v1 = middle_value;
+		v1 = warn_value;
 		v2 = alarm_value;
 		color1 = &warn_color;
 		color2 = &alarm_color;
@@ -94,39 +222,7 @@ Color get_color_for_value(
 
 void gui_init_hardware()
 {
-	// Инициализируем пины SPI дисплея
-	DisplayCSPin::conf_out_push_pull();
-	DisplayDCPin::conf_out_push_pull();
-	DisplayResetPin::conf_out_push_pull();
-
-	DisplaySCKPin::conf_alt_push_pull();
-	DisplayMISOPin::conf_in();
-	DisplayMOSIPin::conf_alt_push_pull();
-
-	// Инициализируем SPI для дисплея
-	LCD_SPI::clock_on();
-	LCD_SPI::reset();
-
-	LCD_SPI::init(
-		SPI_BitsCount::_8,
-		SPI_CSMode::Soft,
-		SPI_CPHA::_2_Edge,
-		SPI_CPOL::High,
-		SPI_BRPrescaler::_2
-	);
-
-	display.init();
-
-	// Таймер и пин для регулировки якрости дисплея через ШИМ
-	DisplLedTimer::clock_on();
-	DisplLedTimer::reset();
-	DisplLedPin::conf_alt_push_pull();
-	DisplLedTimer::disable_auto_reload_preload();
-	DisplLedTimer::set_prescaler(SysFreq/10000-1); // 100 мкс
-	DisplLedTimer::set_auto_reload_value(20-1); // 2 мс
-	DisplLedTimer::conf_pwm<DisplLedTimerChan>(PWMMode::_2, PWMPolarity::High, PWMPreload::Disable);
-	DisplLedTimer::set_pwm_value<DisplLedTimerChan>(0);
-	DisplLedTimer::start();
+	Controller::init();
 }
 
 void gui_init()
@@ -141,66 +237,46 @@ void gui_init()
 	aver_acc = 0;
 	aver_summ = 0;
 	led_mode = LedMode::Undef;
-}
-
-enum class LedIntensity
-{
-	Low,
-	Middle,
-	Full
-};
-
-static void set_display_led_intensity(LedIntensity intensity)
-{
-	switch (intensity)
-	{
-	case LedIntensity::Low:
-		DisplLedTimer::set_pwm_value<DisplLedTimerChan>(2);
-		break;
-
-	case LedIntensity::Middle:
-		DisplLedTimer::set_pwm_value<DisplLedTimerChan>(5);
-		break;
-
-	case LedIntensity::Full:
-		DisplLedTimer::set_pwm_value<DisplLedTimerChan>(19);
-		break;
-	}
+	
+	Controller::start();
 }
 
 
 void gui_show_welcome_screen()
 {
-	display_fill_rect(0, 0, display_get_width()-1, display_get_height()-1, Color(0, 0, 128));
+	display_fill_rect(0, 0, display_get_width()-1, display_get_height()-1, Color(0, 0, 16));
 
-	auto &text_font = firaSans16ptFontInfo;
+	auto &text_font = firaSans8ptFontInfo;
 	auto font_height = display_get_font_height(text_font);
 
 	const Color text_color {255, 255, 255};
 
-	int y = 10;
-	int x = 10;
+	int y = 1;
+	int x = 2;
 
-	display_print_string(x, y, u8"Индикатор CO2", text_font, text_color, nullptr);
-	y += 3 * font_height / 2;
+	display_print_string(x, y, u8"Индикатор", text_font, text_color, nullptr);
+	y += font_height;
+	
+	display_print_string(x, y, u8"CO2", text_font, text_color, nullptr);
+	y += 4*font_height/3;
 
-	display_print_string(x, y, u8"Диапазон: 0 ... 5000 ppm", text_font, text_color, nullptr);
-	y += 2 * font_height;
-
-	display_print_string(x, y, u8"Не дышите на датчик :-)", text_font, text_color, nullptr);
-	y += 3 * font_height / 2;
-
-	set_display_led_intensity(LedIntensity::Low);
+	display_print_string(x, y, u8"Диапазон:", text_font, text_color, nullptr);
+	y += font_height;
+	
+	display_print_string(x, y, u8"0..5000 ppm", text_font, text_color, nullptr);
+	y += font_height;
 }
 
 static void show_graphics(const Rect &rect, unsigned min_max)
 {
-	const Color bk_color {255, 255, 255};
-	const Color good_color { 32, 192, 32 };
-	const Color warn_color { 192, 192, 32 };
-	const Color bad_color { 192, 32, 32 };
-	const Color grid_color {0, 0, 0};
-	const Color text_color {100, 100, 100};
+	const Color bk_color {0, 0, 0};
+	const Color good_color { 0, 64, 0 };
+	const Color warn_color { 64, 64, 0 };
+	const Color bad_color { 64, 0, 0 };
+	const Color text_color {32, 32, 32};
+	const Color yellow(32, 32, 0);
+	const Color red(32, 0, 0);
+	const Color green(0, 32, 0);
 
 	unsigned max = *std::max_element(std::begin(day_values), std::end(day_values));
 
@@ -213,6 +289,7 @@ static void show_graphics(const Rect &rect, unsigned min_max)
 
 	auto y_fun = [&] (int value) { return rect.y2 - value * (rect.y2 - rect.y1) / max; };
 
+	int ok_y = y_fun(config.ok_value);
 	int warn_y = y_fun(config.warn_value);
 	int alarm_y = y_fun(config.alarm_value);
 
@@ -228,6 +305,7 @@ static void show_graphics(const Rect &rect, unsigned min_max)
 
 		Color value_color = get_color_for_value(
 			value,
+			config.ok_value,
 			config.warn_value,
 			config.alarm_value,
 			good_color,
@@ -237,41 +315,20 @@ static void show_graphics(const Rect &rect, unsigned min_max)
 
 		display_fill_rect(x, y, x, rect.y2, value_color);
 
-		if ((x % 4) == 0)
-		{
-			for (int i = 0; i <= 3; i++)
-			{
-				int py = i * (rect.y2 - rect.y1) / 4 + rect.y1;
-				display_set_point(x, py, grid_color);
-			}
-		}
-
-		if (((x % 20) == 0) && (x != 0))
-		{
-			for (int y = rect.y1; y < rect.y2; y += 4)
-				display_set_point(x, y, grid_color);
-		}
-
 		if ((x % 2) == 0)
 		{
+			if (ok_y > rect.y1)
+				display_set_point(x, ok_y, green);
 			if (warn_y > rect.y1)
-			{
-				const Color yellow(255, 255, 0);
-				display_set_point(x, warn_y-1, yellow);
 				display_set_point(x, warn_y, yellow);
-				display_set_point(x, warn_y+1, yellow);
-			}
 			if (alarm_y > rect.y1)
-			{
-				const Color red(255, 0, 0);
-				display_set_point(x, alarm_y-1, red);
 				display_set_point(x, alarm_y, red);
-				display_set_point(x, alarm_y+1, red);
-			}
+				
+			display_set_point(x, rect.y1, text_color);
 		}
 	}
 
-	auto &text_font = firaSans16ptFontInfo;
+	auto &text_font = firaSans8ptFontInfo;
 	auto text_font_height = display_get_font_height(text_font);
 
 	display_print_integer(rect.x1+3, rect.y1, max, -1, text_font, text_color, nullptr);
@@ -303,23 +360,23 @@ static void add_value_to_graphics(unsigned value)
 
 static void show_measure(unsigned value)
 {
-	auto &value_font = firaMono72ptFontInfo;
-	auto &text_font = firaSans16ptFontInfo;
+	auto &value_font = firaSans20ptFontInfo;
+	auto &text_font = firaSans8ptFontInfo;
 
-	const Color good_color { 96, 255, 96 };
-	const Color warn_color { 192, 192, 32 };
-	const Color bad_color { 255, 96, 96 };
+	const Color good_color { 0, 255, 0};
+	const Color warn_color { 255, 255, 0 };
+	const Color bad_color { 255, 0, 0 };
 
-	Color value_color {0, 0, 0};
+	const Color bk_color = {0, 0, 0};
+	Color value_color;
 
 	const uint16_t value_font_height = display_get_font_height(value_font);
 	const uint16_t text_font_height = display_get_font_height(text_font);
 
-	Color bk_color;
-
 	if (after_start_counter == 0)
-		bk_color = get_color_for_value(
+		value_color = get_color_for_value(
 			value,
+			config.ok_value,
 			config.warn_value,
 			config.alarm_value,
 			good_color,
@@ -327,27 +384,13 @@ static void show_measure(unsigned value)
 			bad_color
 		);
 	else
-		bk_color = Color(128, 190, 255);
+		value_color = Color(0, 100, 100);
 
 	int y = 0;
 
-	// Надпись "Текущие значения CO2"
-	const char *measure_caption = (after_start_counter != 0) ? u8"Значение с датчика" : u8"Замер CO2 (ppm)";
-	Utf8CharactersProvider cur_co2_text_provider(measure_caption);
-	Rect cur_co2_text_rect(0, y, display_get_width()-1, y + 3*text_font_height/2);
-	y += cur_co2_text_rect.height();
-	display_print_any_in_rect(
-		cur_co2_text_rect,
-		HorizAlign::Center,
-		cur_co2_text_provider,
-		text_font,
-		value_color,
-		&bk_color
-	);
-
 	// Текущее значение крупным шрифтом
 	Integer10CharactersProvider value_provider(value, -1);
-	Rect value_rect(0, y, display_get_width()-1, y+35*value_font_height/20);
+	Rect value_rect(0, y, display_get_width()-1, y+value_font_height+2);
 	y += value_rect.height();
 
 	display_print_any_in_rect(
@@ -359,43 +402,9 @@ static void show_measure(unsigned value)
 		&bk_color
 	);
 
-	// Надпись "График за сутки"
-	Color gr_cap_bk_color {255, 255, 255};
-	Utf8CharactersProvider gr_cap_text_provider(u8"График за 12 часов");
-	Rect gr_cap_text_rect (0, y, display_get_width()-1, y + 3*text_font_height/2);
-	y += gr_cap_text_rect.height();
-
-	display_print_any_in_rect(
-		gr_cap_text_rect,
-		HorizAlign::Center,
-		gr_cap_text_provider,
-		text_font,
-		value_color,
-		&gr_cap_bk_color
-	);
-
 	// График за сутки
 	Rect gr_rect(0, y, display_get_width()-1, display_get_height()-1);
 	show_graphics(gr_rect, std::max(config.warn_value, config.warn_value));
-}
-
-static void play_sound(unsigned value)
-{
-	if (value < config.warn_value)
-		sound_do_not_play();
-	else if ((value >= config.warn_value) && (value < config.alarm_value))
-	{
-		unsigned beeps_counter = muil::linear_interpol<unsigned, unsigned>(
-			value,
-			config.warn_value,
-			config.alarm_value,
-			1,
-			4
-		);
-		sound_play_warn(beeps_counter);
-	}
-	else if (value >= config.alarm_value)
-		sound_play_alarm();
 }
 
 static void set_lcd_led_flashing(unsigned value)
@@ -420,14 +429,13 @@ void gui_run()
 			if (after_start_counter == 0)
 			{
 				add_value_to_graphics(co2_value);
-				play_sound(co2_value);
 				set_lcd_led_flashing(co2_value);
 			}
 			show_measure(co2_value);
 			last_measures_count = measures_count;
 		}
 
-		Delay<SysFreq>::exec_ms(100);
+		Delay<SysClockFreq>::exec_ms(100);
 	}
 }
 
@@ -445,22 +453,5 @@ void gui_tick_handler()
 		start_measure_cnt = 0;
 		co2unit_start_measure();
 		WhiteLed::off();
-	}
-
-	if ((ticks_count & 31) == 0)
-	{
-		switch (led_mode)
-		{
-		case LedMode::NoFlashing:
-			set_display_led_intensity(LedIntensity::Middle);
-			break;
-
-		case LedMode::Flashing:
-			if ((ticks_count & 32) == 0)
-				set_display_led_intensity(LedIntensity::Full);
-			else
-				set_display_led_intensity(LedIntensity::Middle);
-			break;
-		}
 	}
 }

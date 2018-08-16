@@ -1,45 +1,29 @@
-#include "hardware.hpp"
 #include "stm32_lib/hl_rcc.hpp"
 #include "stm32_lib/hl_flash.hpp"
 #include "stm32_lib/hl_dwt.hpp"
+#include "stm32_lib/hl_misc.hpp"
+#include "hardware.hpp"
 
 #include "gui.hpp"
-#include "sound.hpp"
 
 
 using namespace hl;
 
 void hardware_init_clock()
 {
-	rcc_enable_hsi();
-	rcc_set_sys_clock(SystemClock::HSI);
-
-	rcc_enable_hse(false);
-
-	flash_enable_prefetch();
-
-	rcc_set_apb2_prescaler(APB2Prescaler::_1);
-	rcc_set_apb1_prescaler(APB1Prescaler::_1);
-	rcc_set_ahb_prescaler(AHBPrescaler::_1);
-
-	rcc_disable_ppl();
-	rcc_set_ppl_source(PPLSource::HSE);
-	rcc_disable_hse_div2_for_pll();
-	rcc_set_ppl_mult_factor(PPLMult::_6);
-	rcc_enable_ppl();
-
-	rcc_set_sys_clock(SystemClock::PLL);
-
-	rcc_disable_hsi();
+	misc_f1_conf_sysclock_hse_high(
+		PLLMult::_12,
+		APB2Prescaler::_1,
+		APB1Prescaler::_1,
+		AHBPrescaler::_1,
+		FlashLatency::_2
+	);
 }
 
 void hardware_base_init()
 {
 	PA::clock_on();
 	PA::reset();
-
-	PB::clock_on();
-	PB::reset();
 
 	PC::clock_on();
 	PC::reset();
@@ -48,18 +32,25 @@ void hardware_base_init()
 
 	WhiteLed::conf_out_push_pull();
 	WhiteLed::on();
+	
+	DebugPin::conf_out_push_pull();
+	
+	hl::rcc_enable_afio();
+	AFIO->MAPR |= AFIO_MAPR_SWJ_CFG_JTAGDISABLE; // чтобы PB4 не ремапился на JTAG
 }
 
 
 void hardware_init_ticks_timer()
 {
-	// Инициализируем таймер для запуска замера
+	// Инициализируем таймер для запуска замера и GUI
 	TicksTimer::clock_on();
 	TicksTimer::reset();
 	TicksTimer::disable_auto_reload_preload();
-	TicksTimer::set_prescaler(SysFreq/1000-1); // 1 мс
-	TicksTimer::set_auto_reload_value(10-1); // 10 мс
+	TicksTimer::set_prescaler(SysClockFreq/1000000u-1u); // 10 мс
+	TicksTimer::set_auto_reload_value(10000-1); // 100 мс
 	TicksTimer::generate_update();
+	
+	NVIC_SetPriority(TicksTimer::IRQn, 4);
 
 	TicksTimer::enable_update_interrupt();
 	TicksTimer::clear_all_flags();
@@ -68,12 +59,11 @@ void hardware_init_ticks_timer()
 	NVIC_EnableIRQ(TicksTimer::IRQn);
 }
 
-extern "C" void TIM2_IRQHandler()
+extern "C" void TIM4_IRQHandler()
 {
 	if (TicksTimer::get_update_interrupt_flag())
 	{
 		gui_tick_handler();
-		sound_tick_handler();
 
 		TicksTimer::clear_update_interrupt_flag();
 	}

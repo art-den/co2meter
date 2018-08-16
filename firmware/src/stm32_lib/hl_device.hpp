@@ -12,6 +12,9 @@
 #elif defined (HL_STM32F3XX)
 	#include <stm32f3xx.h>
 	#define HL_BB_SUPPORT 0
+#elif defined (HL_STM32F4XX)
+	#include <stm32f4xx.h>
+	#define HL_BB_SUPPORT 1
 #else
 	#error "You must define HL_STM32L1XX or HL_STM32F3XX"
 #endif

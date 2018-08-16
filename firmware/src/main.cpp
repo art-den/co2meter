@@ -1,7 +1,6 @@
 #include "hardware.hpp"
 #include "co2unit.hpp"
 #include "gui.hpp"
-#include "sound.hpp"
 #include "config.hpp"
 
 int main()
@@ -16,8 +15,6 @@ int main()
 	gui_init();
 
 	gui_show_welcome_screen();
-
-	sound_init();
 
 	co2unit_init_hardware();
 	co2unit_init();

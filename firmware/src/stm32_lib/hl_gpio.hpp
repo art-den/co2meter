@@ -9,6 +9,8 @@
 	#define HL_GPIO_VER1
 #elif defined (HL_STM32F3XX)
 	#define HL_GPIO_VER2
+#elif defined (HL_STM32F4XX)
+	#define HL_GPIO_VER2
 #else
 	#error "You must define HL_STM32L1XX or HL_STM32F3XX"
 #endif
@@ -304,17 +306,21 @@ typedef Pin<PORT, 13> PORT##13; \
 typedef Pin<PORT, 14> PORT##14; \
 typedef Pin<PORT, 15> PORT##15;
 
-#if defined(RCC_APB2ENR_IOPAEN) || defined(RCC_AHBENR_GPIOAEN)
+#ifdef GPIOA_BASE
 namespace detailed { struct PortHelperA
 {
-#if defined (HL_GPIO_VER1)
+#if defined (RCC_APB2ENR_IOPAEN)
 	constexpr static uint32_t RccBit = RCC_APB2ENR_IOPAEN;
 	constexpr static uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2RSTR);
 	constexpr static uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2ENR);
-#elif defined (HL_GPIO_VER2)
+#elif defined(RCC_AHBENR_GPIOAEN)
 	constexpr static uint32_t RccBit = RCC_AHBENR_GPIOAEN;
 	constexpr static uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, AHBRSTR);
 	constexpr static uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, AHBENR);
+#elif defined(RCC_AHB1ENR_GPIOAEN)
+	constexpr static uint32_t RccBit = RCC_AHB1ENR_GPIOAEN;
+	constexpr static uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, AHB1RSTR);
+	constexpr static uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, AHB1ENR);
 #endif
 	constexpr static uintptr_t gpio = GPIOA_BASE;
 	constexpr static uint32_t EXTIx = 0;
@@ -323,17 +329,21 @@ typedef Port<detailed::PortHelperA> PA;
 HL_DECL_PINS(PA)
 #endif
 
-#if defined(RCC_APB2ENR_IOPBEN) || defined(RCC_AHBENR_GPIOBEN)
+#ifdef GPIOB_BASE
 namespace detailed { struct PortHelperB
 {
-#if defined (HL_GPIO_VER1)
+#if defined (RCC_APB2ENR_IOPBEN)
 	constexpr static uint32_t RccBit = RCC_APB2ENR_IOPBEN;
 	constexpr static uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2RSTR);
 	constexpr static uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2ENR);
-#elif defined (HL_GPIO_VER2)
+#elif defined(RCC_AHBENR_GPIOBEN)
 	constexpr static uint32_t RccBit = RCC_AHBENR_GPIOBEN;
 	constexpr static uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, AHBENR);
 	constexpr static uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, AHBRSTR);
+#elif defined(RCC_AHB1ENR_GPIOBEN)
+	constexpr static uint32_t RccBit = RCC_AHB1ENR_GPIOBEN;
+	constexpr static uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, AHB1ENR);
+	constexpr static uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, AHB1RSTR);
 #endif
 	constexpr static uintptr_t gpio = GPIOB_BASE;
 	constexpr static uint32_t EXTIx = 1;
@@ -342,17 +352,21 @@ typedef Port<detailed::PortHelperB> PB;
 HL_DECL_PINS(PB)
 #endif
 
-#if defined(RCC_APB2ENR_IOPCEN) || defined(RCC_AHBENR_GPIOCEN)
+#if defined(GPIOC_BASE)
 namespace detailed { struct PortHelperC
 {
-#if defined (HL_GPIO_VER1)
+#if defined (RCC_APB2ENR_IOPCEN)
 	constexpr static uint32_t RccBit = RCC_APB2ENR_IOPCEN;
 	constexpr static uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2RSTR);
 	constexpr static uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2ENR);
-#elif defined (HL_GPIO_VER2)
+#elif defined (RCC_AHBENR_GPIOCEN)
 	constexpr static uint32_t RccBit = RCC_AHBENR_GPIOCEN;
 	constexpr static uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, AHBENR);
 	constexpr static uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, AHBRSTR);
+#elif defined(RCC_AHB1ENR_GPIOCEN)
+	constexpr static uint32_t RccBit = RCC_AHB1ENR_GPIOCEN;
+	constexpr static uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, AHB1ENR);
+	constexpr static uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, AHB1RSTR);
 #endif
 	constexpr static uintptr_t gpio = GPIOC_BASE;
 	constexpr static uint32_t EXTIx = 2;
@@ -361,17 +375,21 @@ typedef Port<detailed::PortHelperC> PC;
 HL_DECL_PINS(PC)
 #endif
 
-#if defined(RCC_APB2ENR_IOPDEN) || defined(RCC_AHBENR_GPIODEN)
+#if defined(GPIOD_BASE)
 namespace detailed { struct PortHelperD
 {
-#if defined (HL_GPIO_VER1)
+#if defined (RCC_APB2ENR_IOPDEN)
 	constexpr static uint32_t RccBit = RCC_APB2ENR_IOPDEN;
 	constexpr static uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2RSTR);
 	constexpr static uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2ENR);
-#elif defined (HL_GPIO_VER2)
+#elif defined (RCC_AHBENR_GPIODEN)
 	constexpr static uint32_t RccBit = RCC_AHBENR_GPIODEN;
 	constexpr static uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, AHBENR);
 	constexpr static uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, AHBRSTR);
+#elif defined(RCC_AHB1ENR_GPIODEN)
+	constexpr static uint32_t RccBit = RCC_AHB1ENR_GPIODEN;
+	constexpr static uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, AHB1ENR);
+	constexpr static uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, AHB1RSTR);
 #endif
 	constexpr static uintptr_t gpio = GPIOD_BASE;
 	constexpr static uint32_t EXTIx = 3;
@@ -380,17 +398,21 @@ typedef Port<detailed::PortHelperD> PD;
 HL_DECL_PINS(PD)
 #endif
 
-#if defined(RCC_APB2ENR_IOPEEN) || defined(RCC_AHBENR_GPIOEEN)
+#if defined(GPIOE_BASE)
 namespace detailed { struct PortHelperE
 {
-#if defined (HL_GPIO_VER1)
+#if defined (RCC_APB2ENR_IOPEEN)
 	constexpr static uint32_t RccBit = RCC_APB2ENR_IOPEEN;
 	constexpr static uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2RSTR);
 	constexpr static uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2ENR);
-#elif defined (HL_GPIO_VER2)
+#elif defined (RCC_AHBENR_GPIOEEN)
 	constexpr static uint32_t RccBit = RCC_AHBENR_GPIOEEN;
 	constexpr static uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, AHBENR);
 	constexpr static uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, AHBRSTR);
+#elif defined(RCC_AHB1ENR_GPIOEEN)
+	constexpr static uint32_t RccBit = RCC_AHB1ENR_GPIOEEN;
+	constexpr static uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, AHB1ENR);
+	constexpr static uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, AHB1RSTR);
 #endif
 	constexpr static uintptr_t gpio = GPIOE_BASE;
 	constexpr static uint32_t EXTIx = 4;
@@ -399,17 +421,21 @@ typedef Port<detailed::PortHelperE> PE;
 HL_DECL_PINS(PE)
 #endif
 
-#if defined(RCC_APB2ENR_IOPFEN) || defined(RCC_AHBENR_GPIOFEN)
+#if defined(GPIOF_BASE)
 namespace detailed { struct PortHelperF
 {
-#if defined (HL_GPIO_VER1)
+#if defined (RCC_APB2ENR_IOPFEN)
 	constexpr static uint32_t RccBit = RCC_APB2ENR_IOPFEN;
 	constexpr static uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2RSTR);
 	constexpr static uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2ENR);
-#elif defined (HL_GPIO_VER2)
+#elif defined (RCC_AHBENR_GPIOFEN)
 	constexpr static uint32_t RccBit = RCC_AHBENR_GPIOFEN;
 	constexpr static uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, AHBENR);
 	constexpr static uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, AHBRSTR);
+#elif defined(RCC_AHB1ENR_GPIOFEN)
+	constexpr static uint32_t RccBit = RCC_AHB1ENR_GPIOFEN;
+	constexpr static uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, AHB1ENR);
+	constexpr static uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, AHB1RSTR);
 #endif
 	constexpr static uintptr_t gpio = GPIOF_BASE;
 	constexpr static uint32_t EXTIx = 5;
@@ -418,17 +444,21 @@ typedef Port<detailed::PortHelperF> PF;
 HL_DECL_PINS(PF)
 #endif
 
-#if defined(RCC_APB2ENR_IOPGEN) || defined(RCC_AHBENR_GPIOGEN)
+#if defined(GPIOG_BASE)
 namespace detailed { struct PortHelperG
 {
-#if defined (HL_GPIO_VER1)
+#if defined (RCC_APB2ENR_IOPGEN)
 	constexpr static uint32_t RccBit = RCC_APB2ENR_IOPGEN;
 	constexpr static uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2RSTR);
 	constexpr static uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2ENR);
-#elif defined (HL_GPIO_VER2)
+#elif defined (RCC_AHBENR_GPIOGEN)
 	constexpr static uint32_t RccBit = RCC_AHBENR_GPIOGEN;
 	constexpr static uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, AHBENR);
 	constexpr static uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, AHBRSTR);
+#elif defined(RCC_AHB1ENR_GPIOGEN)
+	constexpr static uint32_t RccBit = RCC_AHB1ENR_GPIOGEN;
+	constexpr static uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, AHB1ENR);
+	constexpr static uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, AHB1RSTR);
 #endif
 	constexpr static uintptr_t gpio = GPIOG_BASE;
 	constexpr static uint32_t EXTIx = 6;

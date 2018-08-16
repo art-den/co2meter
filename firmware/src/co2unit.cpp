@@ -28,14 +28,15 @@ void co2unit_init_hardware()
 
 	CO2Usart::set_stop_bits(StopBits::_1);
 
-	CO2Usart::set_baud_rate(SysFreq / UsartBaudRate);
+	CO2Usart::set_baud_rate(SysClockFreq / UsartBaudRate);
 
 	CO2Usart::enable_transmitter();
 	CO2Usart::enable_receiver();
 
 	CO2Usart::enable_tc_interrupt();
 	CO2Usart::enable_rxne_interrupt();
-
+	
+	NVIC_SetPriority(CO2Usart::IRQn, 4);
 	NVIC_EnableIRQ(CO2Usart::IRQn);
 }
 
@@ -73,7 +74,9 @@ static void start_receive_data()
 static void process_received_data()
 {
 	uint8_t crc = 0;
-	for (unsigned i = 1; i < std::size(receive_buffer)-1; i++) crc += receive_buffer[i];
+	for (unsigned i = 1; i < std::size(receive_buffer)-1; i++) 
+		crc += receive_buffer[i];
+		
 	crc = ~crc;
 	crc++;
 

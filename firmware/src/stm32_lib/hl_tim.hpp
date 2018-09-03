@@ -116,8 +116,6 @@ public:
 		HL_UI32REG(TIM_SR); // <- HACK to avoid the problem with race condition of twice ticks:
 	}
 
-	// TIMx_EGR ???
-
 	static void set_counter(uint16_t value)
 	{
 		HL_UI32REG(TIM_CNT) = value;
@@ -584,85 +582,98 @@ private:
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#if defined(TIM1) && defined(RCC_APB2ENR_TIM1EN)
+#ifdef TIM1
 namespace detailed { template <> struct TimerHelper<1>
 {
 	static constexpr uintptr_t tim = TIM1_BASE;
+	static constexpr IRQn_Type IRQn = TIM1_UP_TIM10_IRQn;
+#ifdef RCC_APB2ENR_TIM1EN
 	static constexpr uint32_t RccBit = RCC_APB2ENR_TIM1EN;
 	static constexpr uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2ENR);
 	static constexpr uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2RSTR);
-	static constexpr IRQn_Type IRQn = TIM1_UP_TIM10_IRQn;
+#endif
 }; }
 typedef GeneralPurposeTimer<1> Timer1;
 #endif // TIM1
 
-#if defined(TIM2) && defined(RCC_APB1ENR_TIM2EN)
+#ifdef TIM2
 namespace detailed { template <> struct TimerHelper<2>
 {
 	static constexpr uintptr_t tim = TIM2_BASE;
+	static constexpr IRQn_Type IRQn = TIM2_IRQn;
+#ifdef RCC_APB1ENR_TIM2EN
 	static constexpr uint32_t RccBit = RCC_APB1ENR_TIM2EN;
 	static constexpr uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB1ENR);
 	static constexpr uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB1RSTR);
-	static constexpr IRQn_Type IRQn = TIM2_IRQn;
+#endif
+	
 }; }
 typedef GeneralPurposeTimer<2> Timer2;
 #endif // TIM2
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#if defined(TIM3) && defined(RCC_APB1ENR_TIM3EN)
+#ifdef TIM3
 namespace detailed { template <> struct TimerHelper<3>
 {
 	static constexpr uintptr_t tim = TIM3_BASE;
+	static constexpr IRQn_Type IRQn = TIM3_IRQn;
+#ifdef RCC_APB1ENR_TIM3EN
 	static constexpr uint32_t RccBit = RCC_APB1ENR_TIM3EN;
 	static constexpr uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB1ENR);
 	static constexpr uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB1RSTR);
-	static constexpr IRQn_Type IRQn = TIM3_IRQn;
+#endif
 }; }
 typedef GeneralPurposeTimer<3> Timer3;
 #endif // TIM3
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#if defined(TIM4) && defined(RCC_APB1ENR_TIM4EN)
+#ifdef TIM4
 namespace detailed { template <> struct TimerHelper<4>
 {
 	static constexpr uintptr_t tim = TIM4_BASE;
+	static constexpr IRQn_Type IRQn = TIM4_IRQn;
+#ifdef RCC_APB1ENR_TIM4EN
 	static constexpr uint32_t RccBit = RCC_APB1ENR_TIM4EN;
 	static constexpr uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB1ENR);
 	static constexpr uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB1RSTR);
-	static constexpr IRQn_Type IRQn = TIM4_IRQn;
+#endif
 }; }
 typedef GeneralPurposeTimer<4> Timer4;
 #endif // TIM4
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#if defined(TIM5) && defined(RCC_APB1ENR_TIM5EN)
+#ifdef TIM5
 namespace detailed { template <> struct TimerHelper<5>
 {
 	static constexpr uintptr_t tim = TIM5_BASE;
+	static constexpr IRQn_Type IRQn = TIM5_IRQn;
+#ifdef RCC_APB1ENR_TIM5EN
 	static constexpr uint32_t RccBit = RCC_APB1ENR_TIM5EN;
 	static constexpr uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB1ENR);
 	static constexpr uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB1RSTR);
-	static constexpr IRQn_Type IRQn = TIM5_IRQn;
+#endif
 }; }
 typedef GeneralPurposeTimer<5> Timer5;
 #endif // TIM5
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#if defined(TIM6) && defined(RCC_APB1ENR_TIM6EN)
+#ifdef TIM6
 namespace detailed { template <> struct TimerHelper<6>
 {
 	static constexpr uintptr_t tim = TIM6_BASE;
-	static constexpr uint32_t RccBit = RCC_APB1ENR_TIM6EN;
-	static constexpr uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB1ENR);
-	static constexpr uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB1RSTR);
 #if defined(HL_STM32L1XX)
 	static constexpr IRQn_Type IRQn = TIM6_IRQn;
 #elif defined(HL_STM32F3XX) || defined(HL_STM32F4XX)
 	static constexpr IRQn_Type IRQn = TIM6_DAC_IRQn;
+#endif
+#ifdef RCC_APB1ENR_TIM6EN
+	static constexpr uint32_t RccBit = RCC_APB1ENR_TIM6EN;
+	static constexpr uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB1ENR);
+	static constexpr uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB1RSTR);
 #endif
 }; }
 typedef BasicTimer<6> Timer6;
@@ -670,31 +681,35 @@ typedef BasicTimer<6> Timer6;
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#if defined(TIM7) && defined(RCC_APB1ENR_TIM7EN)
+#ifdef TIM7
 namespace detailed { template <> struct TimerHelper<7>
 {
 	static constexpr uintptr_t tim = TIM7_BASE;
+	static constexpr IRQn_Type IRQn = TIM7_IRQn;
+#ifdef RCC_APB1ENR_TIM7EN
 	static constexpr uint32_t RccBit = RCC_APB1ENR_TIM7EN;
 	static constexpr uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB1ENR);
 	static constexpr uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB1RSTR);
-	static constexpr IRQn_Type IRQn = TIM7_IRQn;
+#endif
 }; }
 typedef BasicTimer<7> Timer7;
 #endif // TIM7
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#if defined(TIM9) && defined(RCC_APB2ENR_TIM9EN)
+#ifdef TIM9
 namespace detailed { template <> struct TimerHelper<9>
 {
 	static constexpr uintptr_t tim = TIM9_BASE;
-	static constexpr uint32_t RccBit = RCC_APB2ENR_TIM9EN;
-	static constexpr uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2ENR);
-	static constexpr uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2RSTR);
 #ifdef HL_STM32F4XX
 	static constexpr IRQn_Type IRQn = TIM1_BRK_TIM9_IRQn;
 #else
 	static constexpr IRQn_Type IRQn = TIM9_IRQn;
+#endif
+#ifdef RCC_APB2ENR_TIM9EN
+	static constexpr uint32_t RccBit = RCC_APB2ENR_TIM9EN;
+	static constexpr uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2ENR);
+	static constexpr uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2RSTR);
 #endif
 }; }
 typedef GeneralPurposeTimer<9> Timer9;
@@ -702,13 +717,15 @@ typedef GeneralPurposeTimer<9> Timer9;
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#if defined(TIM10) && defined(RCC_APB2ENR_TIM10EN)
+#ifdef TIM10
 namespace detailed { template <> struct TimerHelper<10>
 {
 	static constexpr uintptr_t tim = TIM10_BASE;
+#ifdef RCC_APB2ENR_TIM10EN
 	static constexpr uint32_t RccBit = RCC_APB2ENR_TIM10EN;
 	static constexpr uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2ENR);
 	static constexpr uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2RSTR);
+#endif
 #ifdef HL_STM32F4XX
 	static constexpr IRQn_Type IRQn = TIM1_UP_TIM10_IRQn;
 #else
@@ -720,17 +737,19 @@ typedef GeneralPurposeTimer<10> Timer10;
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#if defined(TIM11) && defined(RCC_APB2ENR_TIM11EN)
+#ifdef TIM11
 namespace detailed { template <> struct TimerHelper<11>
 {
 	static constexpr uintptr_t tim = TIM11_BASE;
-	static constexpr uint32_t RccBit = RCC_APB2ENR_TIM11EN;
-	static constexpr uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2ENR);
-	static constexpr uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2RSTR);
 #ifdef HL_STM32F4XX
 	static constexpr IRQn_Type IRQn = TIM1_TRG_COM_TIM11_IRQn;
 #else
 	static constexpr IRQn_Type IRQn = TIM11_IRQn;
+#endif
+#ifdef RCC_APB2ENR_TIM11EN
+	static constexpr uint32_t RccBit = RCC_APB2ENR_TIM11EN;
+	static constexpr uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2ENR);
+	static constexpr uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2RSTR);
 #endif
 }; }
 typedef GeneralPurposeTimer<11> Timer11;
@@ -774,17 +793,19 @@ typedef GeneralPurposeTimer<16> Timer16;
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#if defined(TIM17) && defined(RCC_APB2ENR_TIM17EN)
+#ifdef TIM17
 namespace detailed { template <> struct TimerHelper<17>
 {
 	static constexpr uintptr_t tim = TIM17_BASE;
-	static constexpr uint32_t RccBit = RCC_APB2ENR_TIM17EN;
-	static constexpr uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2ENR);
-	static constexpr uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2RSTR);
 #if defined(HL_STM32F1XX)
 	static constexpr IRQn_Type IRQn = TIM1_TRG_COM_TIM17_IRQn;
 #else
 	static constexpr IRQn_Type IRQn = TIM17_IRQn;
+#endif
+#ifdef RCC_APB2ENR_TIM17EN
+	static constexpr uint32_t RccBit = RCC_APB2ENR_TIM17EN;
+	static constexpr uintptr_t ClockRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2ENR);
+	static constexpr uintptr_t ResetRegister = RCC_BASE + offsetof(RCC_TypeDef, APB2RSTR);
 #endif
 }; }
 typedef GeneralPurposeTimer<17> Timer17;

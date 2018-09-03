@@ -76,7 +76,7 @@ static void process_received_data()
 	uint8_t crc = 0;
 	for (unsigned i = 1; i < std::size(receive_buffer)-1; i++) 
 		crc += receive_buffer[i];
-		
+
 	crc = ~crc;
 	crc++;
 
@@ -87,7 +87,7 @@ static void process_received_data()
 	measures_count++;
 }
 
-extern "C" void USART2_IRQHandler()
+extern "C" void CO2Usart_IRQHandler()
 {
 	if (CO2Usart::get_tc_flag())
 	{

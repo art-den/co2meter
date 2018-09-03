@@ -28,15 +28,15 @@ void hardware_base_init()
 	PC::clock_on();
 	PC::reset();
 
-	DWTCounter::enable();
+	dwt_enable();
 
 	WhiteLed::conf_out_push_pull();
 	WhiteLed::on();
 	
 	DebugPin::conf_out_push_pull();
 	
-	hl::rcc_enable_afio();
-	AFIO->MAPR |= AFIO_MAPR_SWJ_CFG_JTAGDISABLE; // чтобы PB4 не ремапился на JTAG
+	rcc_enable_afio();
+	gpio_disable_jtag(); // чтобы PB4 не ремапился на JTAG
 }
 
 
@@ -59,7 +59,7 @@ void hardware_init_ticks_timer()
 	NVIC_EnableIRQ(TicksTimer::IRQn);
 }
 
-extern "C" void TIM4_IRQHandler()
+extern "C" void TicksTimer_IRQHandler()
 {
 	if (TicksTimer::get_update_interrupt_flag())
 	{

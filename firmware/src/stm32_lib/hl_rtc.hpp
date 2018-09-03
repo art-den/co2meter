@@ -84,21 +84,17 @@ inline uint8_t rtc_get_bcd_value (uint32_t value, unsigned mask, unsigned tens_s
 	return tens * 10 + units;
 }
 
-
-
 } // end 'namespace detailed'
+
 
 inline bool rtc_is_calendar_initialized()
 {
 	return RTC->ISR & RTC_ISR_INITS;
 }
 
-inline void rtc_init(bool do_reset)
+inline void rtc_init_lse_clock()
 {
-	pwr_enable_interface();
-	pwr_disable_backup_write_protection();
-
-	if (do_reset) rcc_reset_rtc();
+	rcc_reset_rtc();
 	rcc_enable_lse();
 	rcc_set_rtc_clock(RTCClock::LSE);
 	rcc_enable_rtc();

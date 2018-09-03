@@ -66,8 +66,8 @@ using Line = lm::Hub75LineHardware<
 	Hub75Port,
 	Pins,
 	TransDmaChan, 
-	-1, // DMA channel index. Used in STM32F4 DMA controllers
-	-1  // Timer PWM channel for Memory -> DMA -> GPIO transfer. -1 is for using update event
+	-1, // DMA channel index. Used only in STM32F4 DMA controllers
+	-1  // Timer PWM channel for Memory -> DMA -> GPIO transfer. -1 value for using timer update event
 >;
 
 using LineHardwareItems = lm::Hub75LineHardwareItems<Line>;
@@ -135,7 +135,15 @@ void muil::display_paint_character(
 	const Color   &color, 
 	const Color   *bg_color)
 {
-	default_display_paint_character(x0, y0, data, width, height, color, bg_color);
+	default_display_paint_character(
+		x0, 
+		y0, 
+		data, 
+		width, 
+		height, 
+		color, 
+		bg_color
+	);
 }
 
 void muil::display_fill_rect(

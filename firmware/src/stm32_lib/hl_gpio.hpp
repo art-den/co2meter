@@ -471,17 +471,14 @@ HL_DECL_PINS(PG)
 // remap function for STM32F1 devices
 #if defined (HL_GPIO_VER1)
 
-enum class SWJTAGConf
+inline void gpio_disable_jtag()
 {
-	Full            = 0b00 << 24,
-	FullWithoutNRTS = 0b01 << 24,
-	SeralWire       = 0b10 << 24,
-	Disabled        = 0b11 << 24,
-};
+	AFIO->MAPR |= AFIO_MAPR_SWJ_CFG_JTAGDISABLE;
+}
 
-inline void gpio_set_serial_wire_jtag_conf(SWJTAGConf value)
+inline void gpio_enable_jtag()
 {
-	set_value_by_mask(AFIO->MAPR, AFIO_MAPR_SWJ_CFG, (uint32_t)value);
+	AFIO->MAPR &= ~AFIO_MAPR_SWJ_CFG_JTAGDISABLE;
 }
 
 #endif

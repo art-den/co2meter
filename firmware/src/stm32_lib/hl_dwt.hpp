@@ -5,26 +5,34 @@
 
 namespace hl {
 
-class DWTCounter
+constexpr uintptr_t DWT_CYCCNT_ADDR  = 0xE0001004;
+constexpr uintptr_t DWT_CONTROL_ADDR = 0xE0001000;
+constexpr uintptr_t SCB_DEMCR_ADDR   = 0xE000EDFC;
+
+inline void dwt_enable()
 {
-public:
-	static void enable()
-	{
-		HL_UI32REG(SCB_DEMCR)  |= 0x01000000;
-		HL_UI32REG(DWT_CYCCNT) = 0;
-		HL_UI32REG(DWT_CONTROL) |= 1;
-	}
+	HL_UI32REG(SCB_DEMCR_ADDR)  |= 0x01000000;
+	HL_UI32REG(DWT_CYCCNT_ADDR) = 0;
+	HL_UI32REG(DWT_CONTROL_ADDR) |= 1;
+}
 
-	inline static uint32_t get()
-	{
-		return HL_UI32REG(DWT_CYCCNT);
-	}
+inline uint32_t dwt_get()
+{
+	return HL_UI32REG(DWT_CYCCNT_ADDR);
+}
 
-private:
-	static constexpr uintptr_t DWT_CYCCNT  = 0xE0001004;
-	static constexpr uintptr_t DWT_CONTROL = 0xE0001000;
-	static constexpr uintptr_t SCB_DEMCR   = 0xE000EDFC;
-};
+inline void dwt_wait_ticks(uint32_t ticks)
+{
+	int32_t stop = dwt_get()+ticks;
+	while ((int32_t)(dwt_get()-stop) < 0) {}
+}
+
+inline void dwt_wait_ticks_wfi(uint32_t ticks)
+{
+	int32_t stop = dwt_get()+ticks;
+	while ((int32_t)(dwt_get()-stop) < 0) __WFI();
+}
+
 
 template <unsigned SysFreq>
 class Delay
@@ -32,42 +40,27 @@ class Delay
 public:
 	inline static void exec_ms(uint32_t value)
 	{
-		exec_ticks(value * (SysFreq/1000));
+		dwt_wait_ticks(value * (SysFreq/1000));
 	}
 
 	inline static void exec_us(uint32_t value)
 	{
-		exec_ticks(value * (SysFreq/1000000));
+		dwt_wait_ticks(value * (SysFreq/1000000));
 	}
 
 	inline static void exec_ns(uint32_t value)
 	{
-		exec_ticks(value * SysFreq / 1000000000);
+		dwt_wait_ticks(value * SysFreq / 1000000000);
 	}
-
 
 	inline static void exec_ms_with_sleep(uint32_t value)
 	{
-		exec_ticks_wfi(value * (SysFreq/1000));
+		dwt_wait_ticks_wfi(value * (SysFreq/1000));
 	}
 
 	inline static void exec_us_with_sleep(uint32_t value)
 	{
-		exec_ticks_wfi(value * (SysFreq/1000000));
-	}
-
-
-private:
-	inline static void exec_ticks(uint32_t ticks)
-	{
-		int32_t stop = DWTCounter::get()+ticks;
-		while ((int32_t)(DWTCounter::get()-stop) < 0) {}
-	}
-
-	inline static void exec_ticks_wfi(uint32_t ticks)
-	{
-		int32_t stop = DWTCounter::get()+ticks;
-		while ((int32_t)(DWTCounter::get()-stop) < 0) __WFI();
+		dwt_wait_ticks_wfi(value * (SysFreq/1000000));
 	}
 };
 

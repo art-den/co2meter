@@ -512,23 +512,30 @@ inline void rcc_set_mco_clock(MCOClock clock)
 
 // LSE
 
+#ifdef RCC_CSR_LSEON
+
 inline void rcc_enable_lse()
 {
-#ifdef RCC_CSR_LSEON
 	RCC->CSR &= ~RCC_CSR_LSEON;
 	__DSB();
 	__DSB();
 	RCC->CSR |= RCC_CSR_LSEON;
 	while (!(RCC->CSR & RCC_CSR_LSERDY)) break;
-#endif
 }
 
+inline bool rcc_is_lse_on()
+{
+	return RCC->CSR & RCC_CSR_LSEON;
+}
+
+#endif
+
+#ifdef RCC_CSR_LSERDY
 inline bool rcc_is_lse_ready()
 {
-#ifdef RCC_CSR_LSERDY
 	return RCC->CSR & RCC_CSR_LSERDY;
-#endif
 }
+#endif
 
 
 // LSI
@@ -560,19 +567,23 @@ inline void rcc_reset_rtc()
 }
 #endif
 
+#ifdef RCC_CSR_RTCEN
 inline void rcc_enable_rtc()
 {
-#ifdef RCC_CSR_RTCEN
 	RCC->CSR |= RCC_CSR_RTCEN;
-#endif
 }
 
 inline void rcc_disable_rtc()
 {
-#ifdef RCC_CSR_RTCEN
 	RCC->CSR &= ~RCC_CSR_RTCEN;
-#endif
 }
+
+inline bool rcc_is_rtc_enabled()
+{
+	return RCC->CSR & RCC_CSR_RTCEN;
+}
+
+#endif
 
 #ifdef RCC_APB2ENR_SYSCFGEN
 inline void rcc_enable_syscfg_clock()

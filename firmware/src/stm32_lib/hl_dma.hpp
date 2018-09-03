@@ -37,10 +37,6 @@ enum class DMADirection
 template <unsigned N>
 class DMAController : public Device<detailed::DMAHelper<N>>
 {
-public:
-
-private:
-	static constexpr DMA_TypeDef *dma = detailed::DMAHelper<N>::dma;
 };
 
 #ifdef HL_STM32F4XX
